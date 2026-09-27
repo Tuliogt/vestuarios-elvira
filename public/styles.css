@@ -500,3 +500,16 @@ tr.fila-subtotal td {
   .encabezado-admin .boton-texto { align-self: flex-end; }
   .tabla-scroll { max-height: 300px; }
 }
+
+/* Aviso de conservar comprobantes, bajo la zona de subida */
+.aviso-guardar {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  background: var(--error-suave);
+  border-left: 3px solid var(--error);
+  border-radius: var(--radio-s);
+  color: var(--error);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+}

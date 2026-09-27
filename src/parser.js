@@ -208,6 +208,82 @@ function extraerMonto(texto) {
 }
 
 // ------------------------------------------------------------
+// Destinatario: a quién se le hizo la transferencia.
+//
+// Es lo que permite rechazar comprobantes que no son para doña
+// Elvia. Se saca el teléfono SINPE y el nombre del titular.
+//
+//   BAC: "al teléfono Nº 71096863 a nombre de ELVIA DAMARIS
+//         BRAVO VARGAS."
+//   BCR: "SINPE Móvil destino" + nombre + "7109-6863"
+// ------------------------------------------------------------
+function extraerDestino(texto) {
+  let telefono = null;
+  let titular = null;
+
+  // --- formato BAC ---
+  const bacTel = texto.match(/tel[eé]fono\s*N?[°ºo.:]*\s*([\d\s-]{8,14})/i);
+  if (bacTel && esMovilCR(soloDigitos(bacTel[1]))) telefono = soloDigitos(bacTel[1]);
+
+  const bacNombre = texto.match(/a\s+nombre\s+de\s+([\s\S]{3,90}?)\s*\./i);
+  if (bacNombre) titular = limpiarNombre(bacNombre[1]);
+
+  // --- formato BCR y similares ---
+  if (!telefono || !titular) {
+    const lineas = texto.split('\n');
+    for (let i = 0; i < lineas.length; i++) {
+      const l = sinTildes(lineas[i].toLowerCase());
+      if (!/sinpe\s*movil\s*destino|destino/.test(l)) continue;
+
+      // Después del rótulo vienen el nombre (una o dos líneas) y
+      // el teléfono, en algún orden según el banco.
+      const trozos = [];
+      const resto = lineas[i].replace(/sinpe\s*m[oó]vil\s*destino|destino/i, '').trim();
+      if (resto) trozos.push(resto);
+      for (let j = i + 1; j < Math.min(i + 5, lineas.length); j++) {
+        if (esRotulo(lineas[j])) break;
+        trozos.push(lineas[j].trim());
+      }
+
+      const partesNombre = [];
+      trozos.forEach((t) => {
+        const d = soloDigitos(t);
+        if (esMovilCR(d) && /^[\d\s-]+$/.test(t.trim())) {
+          if (!telefono) telefono = d;
+        } else if (/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(t)) {
+          partesNombre.push(t.trim());
+        }
+      });
+
+      if (!titular && partesNombre.length) titular = limpiarNombre(partesNombre.join(' '));
+      break;
+    }
+  }
+
+  // Si el rótulo no ayudó, buscar un móvil válido en todo el
+  // texto (los comprobantes suelen traer solo el del destino).
+  if (!telefono) {
+    const candidatos = (texto.match(/\b\d{4}[-\s]?\d{4}\b/g) || [])
+      .map(soloDigitos)
+      .filter(esMovilCR);
+    if (candidatos.length) telefono = candidatos[0];
+  }
+
+  return { telefono, titular };
+}
+
+function soloDigitos(t) {
+  return String(t || '').replace(/\D/g, '');
+}
+
+// En Costa Rica los celulares tienen 8 dígitos y empiezan con
+// 6, 7 u 8. SINPE Móvil siempre va a una línea móvil, así que
+// esto descarta números de documento y otros códigos largos.
+function esMovilCR(d) {
+  return /^[678]\d{7}$/.test(String(d || ''));
+}
+
+// ------------------------------------------------------------
 // Campos de texto con rótulo ("Detalle", "Motivo", etc.)
 // ------------------------------------------------------------
 function valorDeRotulo(texto, rotulos) {
@@ -448,6 +524,8 @@ export function parsearComprobante(textoCrudo) {
     avisos.push('La fecha visible y la fecha dentro del número de referencia no coinciden. Verifica cuál es la correcta.');
   }
 
+  const destino = extraerDestino(texto);
+
   const campos = {
     fecha: fecha,
     remitente: extraerRemitente(texto),
@@ -455,6 +533,8 @@ export function parsearComprobante(textoCrudo) {
     monto: extraerMonto(texto),
     detalle: valorDeRotulo(texto, ['detalle', 'motivo', 'descripcion', 'descripción', 'concepto', 'nota']),
     referencia: referencia,
+    destino_telefono: destino.telefono,
+    destino_titular: destino.titular,
   };
 
   if (!campos.referencia) avisos.push('No se encontró el número de referencia. Escríbelo a mano tal como aparece en el comprobante.');
@@ -464,7 +544,10 @@ export function parsearComprobante(textoCrudo) {
 }
 
 export function vacio() {
-  return { fecha: null, remitente: null, cuenta_origen: null, monto: null, detalle: null, referencia: null };
+  return {
+    fecha: null, remitente: null, cuenta_origen: null, monto: null,
+    detalle: null, referencia: null, destino_telefono: null, destino_titular: null,
+  };
 }
 
 // Exportadas para las pruebas

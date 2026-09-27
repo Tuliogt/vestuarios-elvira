@@ -37,6 +37,11 @@ const LIMITE_CUERPO = 6 * 1024 * 1024;
 const LIMITE_IMAGEN = 4 * 1024 * 1024;
 const CONFIAR_PROXY = process.env.CONFIAR_EN_PROXY !== 'false';
 
+// Solo se aceptan comprobantes dirigidos a esta línea SINPE.
+// Es lo que evita que alguien suba el pago de otra cosa.
+const SINPE_TELEFONO = (process.env.SINPE_TELEFONO || '').replace(/\D/g, '');
+const SINPE_TITULAR = (process.env.SINPE_TITULAR || '').trim();
+
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
@@ -248,6 +253,36 @@ async function manejarRegistro(req, res) {
       for (const clave of Object.keys(campos)) {
         if (campos[clave] == null && rescatado[clave] != null) campos[clave] = rescatado[clave];
       }
+    }
+  }
+
+  // ¿El comprobante va dirigido a doña Elvia?
+  //
+  // El teléfono manda: es exacto y el OCR lo lee bien. El nombre
+  // solo se usa si no se pudo leer el teléfono, porque los
+  // bancos lo escriben de formas distintas.
+  if (SINPE_TELEFONO) {
+    const tel = String(campos.destino_telefono || '').replace(/\D/g, '');
+    const titular = normalizarNombre(campos.destino_titular);
+    const esperado = normalizarNombre(SINPE_TITULAR);
+
+    let valido;
+    if (tel) {
+      valido = tel === SINPE_TELEFONO;
+    } else if (titular && esperado) {
+      // Sin teléfono, se compara por apellidos y nombre
+      valido = comparteNombre(titular, esperado);
+    } else {
+      valido = false;   // no se pudo determinar: se rechaza
+    }
+
+    if (!valido) {
+      const aQuien = SINPE_TITULAR || `la línea ${SINPE_TELEFONO}`;
+      return json(res, {
+        error: `Este comprobante no corresponde a un pago para ${aQuien}. `
+             + 'Solo se pueden subir comprobantes de pagos hechos a '
+             + `${aQuien}.`,
+      }, 422);
     }
   }
 

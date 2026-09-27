@@ -207,6 +207,47 @@ const r2 = parsearComprobante(BAC_POR_COLUMNAS);
 revisar('leido por columnas', r2.campos.monto, 6000);
 revisar('  no confunde con el día', r2.campos.monto !== 16, true);
 
+console.log('\n=== Destinatario del pago ===');
+
+// Comprobante REAL de doña Elvia (BAC)
+const BAC_ELVIA = `BAC
+Notificación de transferencia
+SINPE Móvil
+Hola,
+Le informamos que MARCO TULIO AVILA
+BARRERA realizó una transferencia por
+medio de SINPE Móvil al teléfono Nº
+71096863 a nombre de ELVIA DAMARIS
+BRAVO VARGAS.
+Referencia
+20260820102840004752336 96
+Fecha
+Hora
+Monto
+20 agosto 2026
+7:34 PM
+$10,000.00
+Detalle
+Marco Tulio Avila Barrera`;
+
+const elvia = parsearComprobante(BAC_ELVIA);
+console.log(JSON.stringify(elvia.campos, null, 2));
+revisar('teléfono destino', elvia.campos.destino_telefono, '71096863');
+revisar('titular destino', elvia.campos.destino_titular, 'ELVIA DAMARIS BRAVO VARGAS');
+revisar('monto', elvia.campos.monto, 10000);
+revisar('fecha', elvia.campos.fecha, '2026-08-20');
+revisar('referencia', elvia.campos.referencia, '2026082010284000475233696');
+
+// El comprobante de prueba anterior iba a OTRA persona: debe
+// detectarse como tal para poder rechazarlo.
+const otro = parsearComprobante(BAC_REAL);
+revisar('detecta destino ajeno (tel)', otro.campos.destino_telefono, '70180075');
+revisar('detecta destino ajeno (nombre)', otro.campos.destino_titular, 'ESTEBAN JAVIER BARBOZA RIVERA');
+
+// BCR: el teléfono viene con guion
+const bcrDest = parsearComprobante(BCR_REAL);
+revisar('BCR teléfono destino', bcrDest.campos.destino_telefono, '70180075');
+
 console.log('\n=== Texto vacío / basura ===');
 const vacio = parsearComprobante('');
 revisar('sin texto no revienta', vacio.campos.referencia, null);
