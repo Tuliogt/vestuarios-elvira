@@ -1,8 +1,8 @@
 // ============================================================
-// Servidor de "Vestuarios Elvira"
+// Servidor de "Vestuarios Elvia"
 //
 //   GET  /               formulario público
-//   GET  /admin          panel de doña Elvira
+//   GET  /admin          panel de doña Elvia
 //   GET  /config.js      configuración (artistas, login del panel)
 //   POST /api/registrar  OCR del comprobante + guardado
 //   GET  /health         chequeo de salud
@@ -53,6 +53,8 @@ const TIPOS = {
   '.js': 'application/javascript; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json',
 };
 
 const CSP = [
@@ -61,6 +63,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
+  "manifest-src 'self'",
+  "worker-src 'self'",
   `connect-src 'self' ${SUPABASE_URL}`.trim(),
   "frame-ancestors 'none'",
   "base-uri 'none'",
@@ -115,7 +119,7 @@ process.on('unhandledRejection', (r) => console.error('Promesa sin manejar:', r)
 process.on('uncaughtException', (e) => console.error('Excepción no capturada:', e));
 
 servidor.listen(PUERTO, '0.0.0.0', () => {
-  console.log(`Vestuarios Elvira escuchando en el puerto ${PUERTO}`);
+  console.log(`Vestuarios Elvia escuchando en el puerto ${PUERTO}`);
   const faltan = [];
   if (!process.env.GOOGLE_VISION_API_KEY) faltan.push('GOOGLE_VISION_API_KEY');
   if (!SUPABASE_URL) faltan.push('SUPABASE_URL');
@@ -139,7 +143,14 @@ async function servirEstatico(archivo, res) {
   try {
     const contenido = await fs.readFile(destino);
     const tipo = TIPOS[path.extname(destino)] || 'application/octet-stream';
-    res.writeHead(200, cabeceras({ 'content-type': tipo, 'cache-control': 'no-cache' }));
+
+    // El service worker se sirve siempre fresco: si el navegador
+    // lo cachea, los cambios de la app no llegan nunca.
+    const extra = archivo === '/sw.js'
+      ? { 'cache-control': 'no-store', 'service-worker-allowed': '/' }
+      : { 'cache-control': 'no-cache' };
+
+    res.writeHead(200, cabeceras({ 'content-type': tipo, ...extra }));
     res.end(contenido);
   } catch {
     res.writeHead(404, cabeceras({ 'content-type': 'text/html; charset=utf-8' }));

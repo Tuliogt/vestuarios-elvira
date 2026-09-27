@@ -3,8 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vestuarios Elvira — Registro de pagos</title>
+<title>Vestuarios Elvia — Registro de pagos</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B5%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#2F5D4A" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
 <link rel="stylesheet" href="styles.css" />
 <script src="config.js"></script>
 </head>
@@ -13,7 +17,7 @@
 
   <div class="marca">
     <span class="hilo"></span>
-    <span>Vestuarios Elvira · Show de Diciembre</span>
+    <span>Vestuarios Elvia · Show de Diciembre</span>
   </div>
 
   <!-- FORMULARIO -->
@@ -76,6 +80,18 @@
     Tu comprobante se usa solo para leer los datos del pago y no se guarda en ningún lado.
   </p>
 
+
+  <!-- Aviso para instalar la app (solo aparece si Android lo ofrece) -->
+  <div id="barra-instalar" class="barra-instalar oculto">
+    <div class="texto-instalar">
+      <strong>Instalar la app</strong>
+      <span>Queda como un icono en tu teléfono.</span>
+    </div>
+    <div class="acciones-instalar">
+      <button class="boton-chico" id="btn-instalar-no">Ahora no</button>
+      <button class="boton-chico destacado" id="btn-instalar-si">Instalar</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -264,6 +280,46 @@ function escapar(t) {
   d.textContent = t == null ? '' : t;
   return d.innerHTML;
 }
+// ---------- instalar como app ----------
+//
+// Android dispara "beforeinstallprompt" cuando el sitio cumple
+// los requisitos (HTTPS, manifiesto y service worker). Ahí se
+// muestra la barra; si el navegador no lo ofrece, no aparece.
+let promptInstalar = null;
+const barraInstalar = document.getElementById('barra-instalar');
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  promptInstalar = e;
+  try {
+    if (localStorage.getItem('instalar-descartado') === '1') return;
+  } catch (err) {}
+  barraInstalar.classList.remove('oculto');
+});
+
+document.getElementById('btn-instalar-si').addEventListener('click', async () => {
+  barraInstalar.classList.add('oculto');
+  if (!promptInstalar) return;
+  promptInstalar.prompt();
+  await promptInstalar.userChoice;
+  promptInstalar = null;
+});
+
+document.getElementById('btn-instalar-no').addEventListener('click', () => {
+  barraInstalar.classList.add('oculto');
+  try { localStorage.setItem('instalar-descartado', '1'); } catch (err) {}
+});
+
+window.addEventListener('appinstalled', () => {
+  barraInstalar.classList.add('oculto');
+});
+
 </script>
 </body>
 </html>

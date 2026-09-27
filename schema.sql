@@ -1,5 +1,5 @@
 -- ============================================================
--- Vestuarios Elvira - Show de Diciembre   (v3)
+-- Vestuarios Elvia - Show de Diciembre   (v3)
 -- Ejecutar en: Supabase -> SQL Editor -> New query -> Run
 --
 -- Diseno:
@@ -37,7 +37,7 @@ create table if not exists public.pagos (
 create index if not exists pagos_nombre_idx on public.pagos (nombre);
 
 -- ------------------------------------------------------------
--- Items: los cargos que dona Elvira asigna a cada persona
+-- Items: los cargos que dona Elvia asigna a cada persona
 -- ------------------------------------------------------------
 create table if not exists public.items (
   id             uuid primary key default gen_random_uuid(),
@@ -73,7 +73,7 @@ $$;
 
 -- >>> CAMBIA ESTE CORREO <<<
 insert into public.usuarios_autorizados (correo)
-values ('elvira@vestuarios.local')
+values ('elvia@vestuarios.local')
 on conflict (correo) do nothing;
 
 -- ------------------------------------------------------------

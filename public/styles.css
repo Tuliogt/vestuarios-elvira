@@ -513,3 +513,56 @@ tr.fila-subtotal td {
   font-weight: 600;
   line-height: 1.4;
 }
+
+/* ---------- barra para instalar como app ---------- */
+/* Cuando la barra está visible, el contenido necesita espacio
+   abajo para que no quede nada tapado. */
+body:has(.barra-instalar:not(.oculto)) .envoltura { padding-bottom: 130px; }
+
+.barra-instalar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--tarjeta);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-f);
+  padding: 14px 16px;
+  max-width: 520px;
+  margin: 0 auto;
+  animation: subir-barra .25s ease-out;
+}
+
+@keyframes subir-barra {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-instalar { animation: none; }
+}
+
+.texto-instalar { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.texto-instalar strong { font-size: 0.92rem; color: var(--texto); }
+.texto-instalar span { font-size: 0.79rem; color: var(--suave); }
+
+.acciones-instalar { display: flex; gap: 8px; flex: none; }
+
+.boton-chico.destacado {
+  background: var(--primario);
+  color: #fff;
+  border-color: var(--primario);
+}
+
+.boton-chico.destacado:hover { background: var(--primario-osc); color: #fff; }
+
+@media (max-width: 420px) {
+  .acciones-instalar { width: 100%; }
+  .acciones-instalar .boton-chico { flex: 1; }
+}

@@ -1,9 +1,9 @@
-# Vestuarios Elvira — registro de pagos SINPE
+# Vestuarios Elvia — registro de pagos SINPE
 
 Dos partes:
 
 - **`public/index.html`** — formulario público, sin login. La persona escribe su nombre, elige el vestuario y sube la captura de su comprobante SINPE. En un solo paso.
-- **`public/admin.html`** — panel privado para doña Elvira: elige una persona, le agrega items, ve el saldo, y descarga todo en Excel.
+- **`public/admin.html`** — panel privado para doña Elvia: elige una persona, le agrega items, ve el saldo, y descarga todo en Excel.
 
 ## Cómo funciona
 
@@ -22,7 +22,7 @@ Dos decisiones que definen el diseño:
 
 1. Creá un proyecto **nuevo y aparte** de tus otros proyectos. La `service_role` key salta las políticas de seguridad de todo el proyecto, así que conviene que esta app no comparta base con nada más.
 2. Al crearlo, desactivá "Automatically expose new tables" y activá "Enable automatic RLS".
-3. Abrí `schema.sql`, cambiá `elvira@vestuarios.local` por el usuario real, y corré todo en **SQL Editor → New query → Run**.
+3. Abrí `schema.sql`, cambiá `elvia@vestuarios.local` por el usuario real, y corré todo en **SQL Editor → New query → Run**.
 
 > El usuario tiene forma de correo porque Supabase lo exige, pero nunca se manda nada ahí: la cuenta se crea auto-confirmada. Para ella es simplemente "su usuario".
 
@@ -78,6 +78,22 @@ node --env-file=.env server.js
 ```bash
 npm test
 ```
+
+## Instalar como app
+
+El sitio es instalable en Android: al abrirlo aparece una barra ofreciendo
+"Instalar la app", y queda con su icono en el teléfono.
+
+Requiere HTTPS — por eso no funciona con la URL temporal de `sslip.io`.
+Los archivos que lo habilitan son `public/manifest.json` (formulario),
+`public/manifest-admin.json` (panel, abre directo en `/admin`) y
+`public/sw.js`.
+
+El service worker **no cachea páginas ni datos**: solo las librerías y los
+iconos. Los pagos vienen siempre frescos del servidor.
+
+En iPhone no hay barra automática: se instala con Compartir → Añadir a
+pantalla de inicio.
 
 ## Seguridad
 

@@ -3,8 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vestuarios Elvira — Panel</title>
+<title>Vestuarios Elvia — Panel</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B5%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="/manifest-admin.json" />
+<meta name="theme-color" content="#2F5D4A" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
 <link rel="stylesheet" href="styles.css" />
 <script src="vendor/supabase-2.117.2.js"></script>
 <script src="vendor/xlsx-0.18.5.min.js"></script>
@@ -17,7 +21,7 @@
 
   <div class="marca">
     <span class="hilo"></span>
-    <span>Vestuarios Elvira · Panel de doña Elvira</span>
+    <span>Vestuarios Elvia · Panel de doña Elvia</span>
   </div>
 
   <!-- LOGIN -->
@@ -278,6 +282,18 @@
     </div>
 
   </section>
+
+  <!-- Aviso para instalar la app (solo aparece si Android lo ofrece) -->
+  <div id="barra-instalar" class="barra-instalar oculto">
+    <div class="texto-instalar">
+      <strong>Instalar la app</strong>
+      <span>Queda como un icono en tu teléfono.</span>
+    </div>
+    <div class="acciones-instalar">
+      <button class="boton-chico" id="btn-instalar-no">Ahora no</button>
+      <button class="boton-chico destacado" id="btn-instalar-si">Instalar</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -781,7 +797,7 @@ function exportarPDF(cual) {
   const doc = new jsPDF({ orientation: apaisado ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
 
   doc.setFontSize(15);
-  doc.text('Vestuarios Elvira', 40, 40);
+  doc.text('Vestuarios Elvia', 40, 40);
   doc.setFontSize(11);
   doc.setTextColor(90);
   doc.text(`${r.titulo} · ${hoyTexto()}`, 40, 58);
@@ -821,6 +837,46 @@ document.addEventListener('click', (e) => {
 });
 
 revisarSesion();
+// ---------- instalar como app ----------
+//
+// Android dispara "beforeinstallprompt" cuando el sitio cumple
+// los requisitos (HTTPS, manifiesto y service worker). Ahí se
+// muestra la barra; si el navegador no lo ofrece, no aparece.
+let promptInstalar = null;
+const barraInstalar = document.getElementById('barra-instalar');
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  promptInstalar = e;
+  try {
+    if (localStorage.getItem('instalar-descartado') === '1') return;
+  } catch (err) {}
+  barraInstalar.classList.remove('oculto');
+});
+
+document.getElementById('btn-instalar-si').addEventListener('click', async () => {
+  barraInstalar.classList.add('oculto');
+  if (!promptInstalar) return;
+  promptInstalar.prompt();
+  await promptInstalar.userChoice;
+  promptInstalar = null;
+});
+
+document.getElementById('btn-instalar-no').addEventListener('click', () => {
+  barraInstalar.classList.add('oculto');
+  try { localStorage.setItem('instalar-descartado', '1'); } catch (err) {}
+});
+
+window.addEventListener('appinstalled', () => {
+  barraInstalar.classList.add('oculto');
+});
+
 </script>
 </body>
 </html>
