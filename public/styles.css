@@ -402,3 +402,101 @@ tr.seleccionable:hover { background: var(--fondo); }
   .tarjetas-resumen { grid-template-columns: 1fr; }
   .grupo-en-linea { flex-direction: column; align-items: stretch; }
 }
+
+/* ---------- menú de pestañas ---------- */
+.menu-pestanas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: var(--tarjeta);
+  padding: 5px;
+  border-radius: 999px;
+  box-shadow: var(--sombra);
+}
+
+.pestana {
+  width: auto;
+  margin: 0;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--suave);
+  font-size: 0.89rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pestana:hover { color: var(--texto); }
+
+.pestana[aria-current="page"] {
+  background: var(--primario);
+  color: #fff;
+}
+
+/* ---------- cabecera con acciones ---------- */
+.cabecera-seccion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.botones-export { display: flex; gap: 6px; }
+
+.boton-chico {
+  width: auto;
+  margin: 0;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--suave);
+  border: 1px solid var(--borde);
+}
+
+.boton-chico:hover { border-color: var(--primario); color: var(--primario); }
+
+/* ---------- tabla con alto fijo y scroll ---------- */
+.tabla-scroll {
+  max-height: 340px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-s);
+}
+
+.tabla-scroll table { font-size: 0.84rem; }
+
+/* El encabezado queda fijo al desplazar */
+.tabla-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--tarjeta);
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--borde);
+}
+
+.tabla-scroll td, .tabla-scroll th { padding: 8px 10px; }
+
+.pie-tabla {
+  font-size: 0.8rem;
+  color: var(--suave);
+  margin-top: 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.fila-subtotal td {
+  font-weight: 700;
+  background: var(--fondo);
+}
+
+@media (max-width: 560px) {
+  .menu-pestanas { width: 100%; justify-content: center; }
+  .pestana { flex: 1; padding: 9px 10px; font-size: 0.83rem; }
+  .encabezado-admin { flex-direction: column; align-items: stretch; gap: 10px; }
+  .encabezado-admin .boton-texto { align-self: flex-end; }
+  .tabla-scroll { max-height: 300px; }
+}

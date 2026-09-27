@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="styles.css" />
 <script src="vendor/supabase-2.117.2.js"></script>
 <script src="vendor/xlsx-0.18.5.min.js"></script>
+<script src="vendor/jspdf-2.5.2.umd.min.js"></script>
+<script src="vendor/jspdf-autotable-3.8.4.min.js"></script>
 <script src="config.js"></script>
 </head>
 <body>
@@ -31,195 +33,315 @@
 
   <!-- PANEL -->
   <section id="vista-panel" class="oculto">
+
     <div class="encabezado-admin">
-      <h1 style="margin:0;">Desarrollo contable</h1>
+      <nav class="menu-pestanas" id="menu">
+        <button class="pestana" data-vista="inicio">Inicio</button>
+        <button class="pestana" data-vista="persona">Por persona</button>
+        <button class="pestana" data-vista="total">Listado total</button>
+      </nav>
       <button class="boton-texto" id="btn-logout">Cerrar sesión</button>
     </div>
 
-    <div class="tarjeta">
-      <h2>Todas las personas</h2>
-      <div class="tarjetas-resumen" style="margin-bottom:16px;">
-        <div class="tarjeta-cifra">
-          <div class="etiqueta">Total a cobrar</div>
-          <div class="cifra" id="gen-cobrar">₡0</div>
-        </div>
-        <div class="tarjeta-cifra">
-          <div class="etiqueta">Recibido</div>
-          <div class="cifra" id="gen-recibido">₡0</div>
-        </div>
-        <div class="tarjeta-saldo pendiente" id="gen-tarjeta">
-          <div class="etiqueta" id="gen-etiqueta">Falta por cobrar</div>
-          <div class="cifra" id="gen-falta">₡0</div>
-        </div>
-      </div>
-
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr><th>Persona</th><th class="num">Total</th><th class="num">Pagado</th><th>Estado</th></tr>
-          </thead>
-          <tbody id="cuerpo-general"></tbody>
-        </table>
-      </div>
-      <div class="pista-scroll">Desliza la tabla hacia el lado para ver el estado.</div>
-
-      <button class="boton-secundario" id="btn-exportar">Descargar todo en Excel</button>
-    </div>
-
-    <div class="tarjeta">
-      <label for="select-persona">Ver el detalle de una persona</label>
-      <select id="select-persona">
-        <option value="" selected>— Elegir —</option>
-      </select>
-    </div>
-
-    <div id="detalle-persona" class="oculto">
-
+    <!-- ======================= INICIO ======================= -->
+    <div id="vista-inicio" class="vista">
       <div class="tarjeta">
-        <h2 id="titulo-detalle">Pagos recibidos</h2>
-        <div class="tabla-envoltura">
-          <table>
-            <thead>
-              <tr><th>Fecha</th><th>Vestuario</th><th>Monto</th><th>Detalle</th><th>Referencia</th></tr>
-            </thead>
-            <tbody id="cuerpo-pagos"></tbody>
-          </table>
-        </div>
-        <div class="pista-scroll">Desliza la tabla hacia el lado para ver la referencia.</div>
-      </div>
-
-      <div class="tarjeta">
-        <h2>Items del vestuario</h2>
-        <div class="tabla-envoltura">
-          <table>
-            <thead>
-              <tr><th>Item</th><th>Precio</th><th></th></tr>
-            </thead>
-            <tbody id="cuerpo-items"></tbody>
-          </table>
-        </div>
-
-        <label for="nuevo-item">Agregar item</label>
-        <div class="grupo-en-linea">
-          <div><input type="text" id="nuevo-item" placeholder="Ej: pantalón" /></div>
-          <div><select id="nuevo-precio"></select></div>
-        </div>
-        <button class="boton-primario" id="btn-agregar-item">Agregar</button>
-        <div id="mensaje-item"></div>
-      </div>
-
-      <div class="tarjeta">
-        <h2>Resumen</h2>
+        <h2>Hoy</h2>
         <div class="tarjetas-resumen">
           <div class="tarjeta-cifra">
-            <div class="etiqueta">Total del vestuario</div>
-            <div class="cifra" id="cifra-costo">₡0</div>
+            <div class="etiqueta">Pagos recibidos hoy</div>
+            <div class="cifra" id="hoy-cantidad">0</div>
           </div>
           <div class="tarjeta-cifra">
-            <div class="etiqueta">Total pagado</div>
-            <div class="cifra" id="cifra-pagado">₡0</div>
+            <div class="etiqueta">Monto de hoy</div>
+            <div class="cifra" id="hoy-monto">₡0</div>
           </div>
-          <div class="tarjeta-saldo" id="tarjeta-saldo">
-            <div class="etiqueta" id="etiqueta-saldo">Saldo</div>
-            <div class="cifra" id="cifra-saldo">₡0</div>
+        </div>
+        <div class="tabla-envoltura" style="margin-top:16px;">
+          <table>
+            <thead><tr><th>Persona</th><th>Vestuario</th><th class="num">Monto</th><th>Detalle</th></tr></thead>
+            <tbody id="hoy-tabla"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h2>En total</h2>
+        <div class="tarjetas-resumen">
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Personas</div>
+            <div class="cifra" id="gen-personas">0</div>
+          </div>
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Pagos</div>
+            <div class="cifra" id="gen-pagos">0</div>
+          </div>
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Total recibido</div>
+            <div class="cifra" id="gen-recibido">₡0</div>
+          </div>
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Total a cobrar</div>
+            <div class="cifra" id="gen-cobrar">₡0</div>
+          </div>
+          <div class="tarjeta-saldo pendiente" id="gen-tarjeta">
+            <div class="etiqueta" id="gen-etiqueta">Falta por cobrar</div>
+            <div class="cifra" id="gen-falta">₡0</div>
           </div>
         </div>
       </div>
 
+      <div class="tarjeta">
+        <h2>Quiénes más han pagado</h2>
+        <div class="tabla-envoltura">
+          <table>
+            <thead><tr><th>#</th><th>Persona</th><th class="num">Pagos</th><th class="num">Total</th></tr></thead>
+            <tbody id="top-tabla"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </section>
 
+    <!-- ===================== POR PERSONA ===================== -->
+    <div id="vista-persona" class="vista oculto">
+      <div class="tarjeta">
+        <label for="select-persona">Selecciona una persona</label>
+        <select id="select-persona">
+          <option value="" selected>— Elegir —</option>
+        </select>
+      </div>
+
+      <div class="tarjeta" id="persona-vacio">
+        <div class="centro-carga">
+          <div style="font-size:1.6rem;">🧵</div>
+          <p style="margin-top:8px;">Elegí una persona arriba para ver su detalle.</p>
+        </div>
+      </div>
+
+      <div id="persona-detalle" class="oculto">
+
+        <div class="tarjeta">
+          <h1 id="persona-nombre" style="margin:0;">—</h1>
+        </div>
+
+        <div class="tarjeta">
+          <h2>Pagos recibidos</h2>
+          <div class="tabla-envoltura">
+            <table>
+              <thead><tr><th>Fecha</th><th>Vestuario</th><th class="num">Monto</th><th>Detalle</th><th>Referencia</th></tr></thead>
+              <tbody id="cuerpo-pagos"></tbody>
+            </table>
+          </div>
+          <div class="pista-scroll">Desliza la tabla hacia el lado para ver la referencia.</div>
+        </div>
+
+        <div class="tarjeta">
+          <h2>Balance</h2>
+          <div class="tarjetas-resumen">
+            <div class="tarjeta-cifra">
+              <div class="etiqueta">Total pagado</div>
+              <div class="cifra" id="cifra-pagado">₡0</div>
+            </div>
+            <div class="tarjeta-cifra">
+              <div class="etiqueta">Total del vestuario</div>
+              <div class="cifra" id="cifra-costo">₡0</div>
+            </div>
+            <div class="tarjeta-saldo pendiente" id="tarjeta-saldo">
+              <div class="etiqueta" id="etiqueta-saldo">Saldo</div>
+              <div class="cifra" id="cifra-saldo">₡0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tarjeta">
+          <h2>Items del vestuario</h2>
+          <div class="tabla-envoltura">
+            <table>
+              <thead><tr><th>Item</th><th class="num">Precio</th><th></th></tr></thead>
+              <tbody id="cuerpo-items"></tbody>
+            </table>
+          </div>
+
+          <label for="nuevo-item">Agregar item</label>
+          <div class="grupo-en-linea">
+            <div><input type="text" id="nuevo-item" placeholder="Ej: pantalón" /></div>
+            <div><select id="nuevo-precio"></select></div>
+          </div>
+          <button class="boton-primario" id="btn-agregar-item">Agregar</button>
+          <div id="mensaje-item"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h2>Resumen</h2>
+          <div class="tarjetas-resumen">
+            <div class="tarjeta-cifra">
+              <div class="etiqueta">Total del vestuario</div>
+              <div class="cifra" id="res-costo">₡0</div>
+            </div>
+            <div class="tarjeta-cifra">
+              <div class="etiqueta">Total pagado</div>
+              <div class="cifra" id="res-pagado">₡0</div>
+            </div>
+            <div class="tarjeta-saldo pendiente" id="res-tarjeta">
+              <div class="etiqueta" id="res-etiqueta">Saldo pendiente</div>
+              <div class="cifra" id="res-saldo">₡0</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== LISTADO TOTAL ==================== -->
+    <div id="vista-total" class="vista oculto">
+
+      <div class="tarjeta">
+        <div class="cabecera-seccion">
+          <h2 style="margin:0;">Listado de pagos</h2>
+          <div class="botones-export">
+            <button class="boton-chico" data-exportar="pagos-pdf">PDF</button>
+            <button class="boton-chico" data-exportar="pagos-excel">Excel</button>
+          </div>
+        </div>
+        <div class="tabla-scroll">
+          <table>
+            <thead><tr><th>Fecha</th><th>Registrado por</th><th>Comprobante a nombre de</th><th>Vestuario</th><th class="num">Monto</th><th>Referencia</th></tr></thead>
+            <tbody id="total-pagos"></tbody>
+          </table>
+        </div>
+        <div class="pie-tabla" id="total-pagos-pie"></div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="cabecera-seccion">
+          <h2 style="margin:0;">Pagos por persona</h2>
+          <div class="botones-export">
+            <button class="boton-chico" data-exportar="personas-pdf">PDF</button>
+            <button class="boton-chico" data-exportar="personas-excel">Excel</button>
+          </div>
+        </div>
+        <p class="ayuda" style="margin-top:0;">Agrupado por el nombre que aparece en el comprobante.</p>
+        <div class="tabla-scroll">
+          <table>
+            <thead><tr><th>Nombre en el comprobante</th><th class="num">Pagos</th><th class="num">Total</th></tr></thead>
+            <tbody id="total-personas"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="cabecera-seccion">
+          <h2 style="margin:0;">Vestuarios</h2>
+          <div class="botones-export">
+            <button class="boton-chico" data-exportar="vestuarios-pdf">PDF</button>
+            <button class="boton-chico" data-exportar="vestuarios-excel">Excel</button>
+          </div>
+        </div>
+        <div class="tabla-scroll">
+          <table>
+            <thead><tr><th>Vestuario</th><th>Persona</th><th class="num">Monto</th></tr></thead>
+            <tbody id="total-vestuarios"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <div class="cabecera-seccion">
+          <h2 style="margin:0;">Resumen</h2>
+          <div class="botones-export">
+            <button class="boton-chico" data-exportar="resumen-pdf">PDF</button>
+            <button class="boton-chico" data-exportar="resumen-excel">Excel</button>
+          </div>
+        </div>
+        <div class="tarjetas-resumen">
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Total a cobrar</div>
+            <div class="cifra" id="tot-cobrar">₡0</div>
+          </div>
+          <div class="tarjeta-cifra">
+            <div class="etiqueta">Total recibido</div>
+            <div class="cifra" id="tot-recibido">₡0</div>
+          </div>
+          <div class="tarjeta-saldo pendiente" id="tot-tarjeta">
+            <div class="etiqueta" id="tot-etiqueta">Falta por cobrar</div>
+            <div class="cifra" id="tot-falta">₡0</div>
+          </div>
+        </div>
+        <div class="tabla-envoltura" style="margin-top:16px;">
+          <table>
+            <thead><tr><th>Persona</th><th class="num">Vestuario</th><th class="num">Pagado</th><th>Estado</th></tr></thead>
+            <tbody id="tot-por-persona"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
 </div>
 
 <script>
 const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
-const vistaLogin = document.getElementById('vista-login');
-const vistaPanel = document.getElementById('vista-panel');
-const loginCorreo = document.getElementById('login-correo');
-const loginClave = document.getElementById('login-clave');
-const mensajeLogin = document.getElementById('mensaje-login');
-const btnLogin = document.getElementById('btn-login');
-const btnLogout = document.getElementById('btn-logout');
-const btnExportar = document.getElementById('btn-exportar');
-
-const selectPersona = document.getElementById('select-persona');
-const cuerpoGeneral = document.getElementById('cuerpo-general');
-const genCobrar = document.getElementById('gen-cobrar');
-const genRecibido = document.getElementById('gen-recibido');
-const genFalta = document.getElementById('gen-falta');
-const genTarjeta = document.getElementById('gen-tarjeta');
-const genEtiqueta = document.getElementById('gen-etiqueta');
-const detallePersona = document.getElementById('detalle-persona');
-const cuerpoPagos = document.getElementById('cuerpo-pagos');
-const cuerpoItems = document.getElementById('cuerpo-items');
-const nuevoItem = document.getElementById('nuevo-item');
-const nuevoPrecio = document.getElementById('nuevo-precio');
-const btnAgregarItem = document.getElementById('btn-agregar-item');
-const mensajeItem = document.getElementById('mensaje-item');
-
-const cifraCosto = document.getElementById('cifra-costo');
-const cifraPagado = document.getElementById('cifra-pagado');
-const cifraSaldo = document.getElementById('cifra-saldo');
-const etiquetaSaldo = document.getElementById('etiqueta-saldo');
-const tarjetaSaldo = document.getElementById('tarjeta-saldo');
-
+const { jsPDF } = window.jspdf;
 
 // ---------- formato local ----------
-//
 // Intl con es-CR separa los miles con un espacio fino (₡6 000),
-// que no es como se escribe en Costa Rica. Se arma a mano para
-// que quede ₡6.000,00 — con punto de miles y coma decimal.
-function colones(n, conDecimales) {
+// que no es como se escribe en Costa Rica. Se arma a mano.
+function colones(n, dec) {
   const v = Number(n || 0);
-  const partes = Math.abs(v).toFixed(conDecimales ? 2 : 0).split('.');
-  partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return (v < 0 ? '-' : '') + '\u20A1' + partes.join(',');
+  const p = Math.abs(v).toFixed(dec ? 2 : 0).split('.');
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (v < 0 ? '-' : '') + '\u20A1' + p.join(',');
 }
 
-const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+// La fuente estándar del PDF no incluye el símbolo ₡ (sale como
+// "¡"). En los PDF van los números solos y el encabezado aclara
+// que son colones.
+function numero(n) {
+  const v = Number(n || 0);
+  const p = Math.abs(v).toFixed(0).split('.');
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (v < 0 ? '-' : '') + p.join(',');
+}
 
-// "2026-09-16" -> "16 set 2026"  (corto, no se parte en la tabla)
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+
 function fechaCorta(iso) {
   if (!iso) return '\u2014';
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return iso;
-  return `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]} ${m[1]}`;
+  return `${Number(m[3])} ${MESES[Number(m[2]) - 1]} ${m[1]}`;
 }
 
-// "2026-09-16" -> "16 de setiembre de 2026"
-const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
-function fechaLarga(iso) {
-  if (!iso) return '\u2014';
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return iso;
-  return `${Number(m[3])} de ${MESES_LARGOS[Number(m[2]) - 1]} de ${m[1]}`;
-}
-
-// Alias para el resto del panel
-const formatoCRC = { format: (n) => colones(n, false) };
-
-// Precios en múltiplos de ₡5.000 hasta ₡100.000
-const PASO_PRECIO = 5000;
-const MAX_PRECIO = 100000;
-for (let p = PASO_PRECIO; p <= MAX_PRECIO; p += PASO_PRECIO) {
-  const op = document.createElement('option');
-  op.value = p;
-  op.textContent = formatoCRC.format(p);
-  nuevoPrecio.appendChild(op);
+function escapar(t) {
+  const d = document.createElement('div');
+  d.textContent = t == null ? '' : t;
+  return d.innerHTML;
 }
 
 function mensaje(el, texto, tipo) {
   el.innerHTML = texto ? `<div class="mensaje ${tipo}">${texto}</div>` : '';
 }
 
+// ---------- estado ----------
+// Se cargan todos los datos una vez y las tres vistas se arman
+// desde acá. Así cambiar de pestaña es instantáneo.
+let PAGOS = [];
+let ITEMS = [];
+
 // ---------- sesión ----------
+const vistaLogin = document.getElementById('vista-login');
+const vistaPanel = document.getElementById('vista-panel');
+const btnLogin = document.getElementById('btn-login');
+const mensajeLogin = document.getElementById('mensaje-login');
+
 async function revisarSesion() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     vistaLogin.classList.add('oculto');
     vistaPanel.classList.remove('oculto');
-    cargarPersonas();
+    await cargarTodo();
+    irA('inicio');
   } else {
     vistaPanel.classList.add('oculto');
     vistaLogin.classList.remove('oculto');
@@ -230,8 +352,8 @@ btnLogin.addEventListener('click', async () => {
   mensaje(mensajeLogin, '', '');
   btnLogin.disabled = true;
   const { error } = await sb.auth.signInWithPassword({
-    email: loginCorreo.value.trim(),
-    password: loginClave.value,
+    email: document.getElementById('login-correo').value.trim(),
+    password: document.getElementById('login-clave').value,
   });
   btnLogin.disabled = false;
   if (error) {
@@ -241,272 +363,462 @@ btnLogin.addEventListener('click', async () => {
   revisarSesion();
 });
 
-loginClave.addEventListener('keydown', (e) => { if (e.key === 'Enter') btnLogin.click(); });
-
-btnLogout.addEventListener('click', async () => {
-  await sb.auth.signOut();
-  revisarSesion();
+document.getElementById('login-clave').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') btnLogin.click();
 });
 
-// ---------- personas ----------
-async function cargarPersonas() {
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+// ---------- navegación por pestañas ----------
+function irA(vista) {
+  document.querySelectorAll('.vista').forEach((v) => v.classList.add('oculto'));
+  document.getElementById('vista-' + vista).classList.remove('oculto');
+  document.querySelectorAll('.pestana').forEach((b) =>
+    b.setAttribute('aria-current', b.dataset.vista === vista ? 'page' : 'false'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('menu').addEventListener('click', (e) => {
+  const b = e.target.closest('.pestana');
+  if (b) irA(b.dataset.vista);
+});
+
+// ---------- carga de datos ----------
+async function cargarTodo() {
   const [{ data: pagos }, { data: items }] = await Promise.all([
-    sb.from('pagos').select('nombre, artista, monto'),
-    sb.from('items').select('nombre_persona, precio'),
+    sb.from('pagos').select('*').order('creado_en', { ascending: false }),
+    sb.from('items').select('*').order('creado_en'),
   ]);
+  PAGOS = pagos || [];
+  ITEMS = items || [];
 
-  // Un solo mapa con todo lo que se sabe de cada persona
-  const mapa = {};
-  const anotar = (nombre) => {
-    if (!mapa[nombre]) mapa[nombre] = { pagado: 0, costo: 0, vestuarios: new Set() };
-    return mapa[nombre];
-  };
+  armarInicio();
+  armarSelectorPersonas();
+  armarTotal();
+}
 
-  (pagos || []).forEach((p) => {
-    const m = anotar(p.nombre);
-    m.pagado += Number(p.monto || 0);
-    if (p.artista) m.vestuarios.add(p.artista);
-  });
-  (items || []).forEach((i) => { anotar(i.nombre_persona).costo += Number(i.precio || 0); });
+// Cruza pagos e items por nombre de persona
+function porPersona() {
+  const m = {};
+  const tocar = (n) => (m[n] = m[n] || { pagado: 0, costo: 0, cantidad: 0 });
+  PAGOS.forEach((p) => { const x = tocar(p.nombre); x.pagado += Number(p.monto || 0); x.cantidad++; });
+  ITEMS.forEach((i) => { tocar(i.nombre_persona).costo += Number(i.precio || 0); });
+  return m;
+}
 
-  const nombres = Object.keys(mapa).sort((a, b) => a.localeCompare(b, 'es'));
+function pintarSaldo(tarjeta, etiquetaEl, cifraEl, saldo, textoPendiente) {
+  tarjeta.classList.remove('pendiente', 'al-dia');
+  if (saldo > 0) {
+    tarjeta.classList.add('pendiente');
+    etiquetaEl.textContent = textoPendiente;
+    cifraEl.textContent = colones(saldo);
+  } else {
+    tarjeta.classList.add('al-dia');
+    etiquetaEl.textContent = saldo < 0 ? 'Recibido de más' : 'Todo cobrado';
+    cifraEl.textContent = colones(Math.abs(saldo));
+  }
+}
 
-  // Desplegable de detalle
-  selectPersona.innerHTML = '<option value="" selected>— Elegir —</option>';
+// ======================= INICIO =======================
+function armarInicio() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const deHoy = PAGOS.filter((p) => String(p.creado_en || '').slice(0, 10) === hoy);
+
+  document.getElementById('hoy-cantidad').textContent = deHoy.length;
+  document.getElementById('hoy-monto').textContent =
+    colones(deHoy.reduce((a, p) => a + Number(p.monto || 0), 0));
+
+  document.getElementById('hoy-tabla').innerHTML = deHoy.length
+    ? deHoy.map((p) => `<tr>
+        <td>${escapar(p.nombre)}</td>
+        <td>${escapar(p.artista)}</td>
+        <td class="num">${escapar(colones(p.monto))}</td>
+        <td>${escapar(p.detalle || '—')}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4">Todavía no hay pagos hoy.</td></tr>';
+
+  const mapa = porPersona();
+  const nombres = Object.keys(mapa);
+  const totalPagado = PAGOS.reduce((a, p) => a + Number(p.monto || 0), 0);
+  const totalCosto = ITEMS.reduce((a, i) => a + Number(i.precio || 0), 0);
+
+  document.getElementById('gen-personas').textContent = nombres.length;
+  document.getElementById('gen-pagos').textContent = PAGOS.length;
+  document.getElementById('gen-recibido').textContent = colones(totalPagado);
+  document.getElementById('gen-cobrar').textContent = colones(totalCosto);
+  pintarSaldo(
+    document.getElementById('gen-tarjeta'),
+    document.getElementById('gen-etiqueta'),
+    document.getElementById('gen-falta'),
+    totalCosto - totalPagado,
+    'Falta por cobrar'
+  );
+
+  const top = nombres
+    .map((n) => ({ nombre: n, ...mapa[n] }))
+    .sort((a, b) => b.pagado - a.pagado)
+    .slice(0, 10);
+
+  document.getElementById('top-tabla').innerHTML = top.length
+    ? top.map((t, k) => `<tr>
+        <td class="num">${k + 1}</td>
+        <td>${escapar(t.nombre)}</td>
+        <td class="num">${t.cantidad}</td>
+        <td class="num">${escapar(colones(t.pagado))}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4">Todavía no hay pagos registrados.</td></tr>';
+}
+
+// ===================== POR PERSONA =====================
+const selectPersona = document.getElementById('select-persona');
+const personaVacio = document.getElementById('persona-vacio');
+const personaDetalle = document.getElementById('persona-detalle');
+
+const PASO_PRECIO = 5000;
+const MAX_PRECIO = 100000;
+const nuevoPrecio = document.getElementById('nuevo-precio');
+for (let p = PASO_PRECIO; p <= MAX_PRECIO; p += PASO_PRECIO) {
+  const op = document.createElement('option');
+  op.value = p;
+  op.textContent = colones(p);
+  nuevoPrecio.appendChild(op);
+}
+
+function armarSelectorPersonas() {
+  const actual = selectPersona.value;
+  const nombres = Object.keys(porPersona()).sort((a, b) => a.localeCompare(b, 'es'));
+  selectPersona.innerHTML = '<option value="">— Elegir —</option>';
   nombres.forEach((n) => {
     const op = document.createElement('option');
     op.value = n;
     op.textContent = n;
     selectPersona.appendChild(op);
   });
-
-  // Tabla general
-  cuerpoGeneral.innerHTML = '';
-  let totalCobrar = 0;
-  let totalRecibido = 0;
-
-  nombres.forEach((n) => {
-    const { pagado, costo } = mapa[n];
-    totalCobrar += costo;
-    totalRecibido += pagado;
-    const saldo = costo - pagado;
-
-    const estado = saldo > 0
-      ? `<span class="marca-estado debe">Debe ${escapar(colones(saldo))}</span>`
-      : saldo < 0
-        ? '<span class="marca-estado demas">Pagó de más</span>'
-        : '<span class="marca-estado aldia">Al día</span>';
-
-    const tr = document.createElement('tr');
-    tr.className = 'seleccionable';
-    tr.innerHTML = `
-      <td>${escapar(n)}</td>
-      <td class="num">${escapar(colones(costo))}</td>
-      <td class="num">${escapar(colones(pagado))}</td>
-      <td>${estado}</td>
-    `;
-    // Tocar la fila abre el detalle de esa persona
-    tr.addEventListener('click', () => {
-      selectPersona.value = n;
-      selectPersona.dispatchEvent(new Event('change'));
-      detallePersona.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    cuerpoGeneral.appendChild(tr);
-  });
-
-  if (!nombres.length) {
-    cuerpoGeneral.innerHTML = '<tr><td colspan="4">Todavía no hay pagos registrados.</td></tr>';
-  }
-
-  genCobrar.textContent = colones(totalCobrar);
-  genRecibido.textContent = colones(totalRecibido);
-
-  const falta = totalCobrar - totalRecibido;
-  genTarjeta.classList.remove('pendiente', 'al-dia');
-  if (falta > 0) {
-    genTarjeta.classList.add('pendiente');
-    genEtiqueta.textContent = 'Falta por cobrar';
-    genFalta.textContent = colones(falta);
-  } else {
-    genTarjeta.classList.add('al-dia');
-    genEtiqueta.textContent = falta < 0 ? 'Recibido de más' : 'Todo cobrado';
-    genFalta.textContent = colones(Math.abs(falta));
-  }
+  if (actual && nombres.includes(actual)) selectPersona.value = actual;
 }
 
 selectPersona.addEventListener('change', () => {
-  if (selectPersona.value) {
-    detallePersona.classList.remove('oculto');
-    cargarDetalle(selectPersona.value);
-  } else {
-    detallePersona.classList.add('oculto');
+  if (!selectPersona.value) {
+    personaDetalle.classList.add('oculto');
+    personaVacio.classList.remove('oculto');
+    return;
   }
+  personaVacio.classList.add('oculto');
+  personaDetalle.classList.remove('oculto');
+  armarPersona(selectPersona.value);
 });
 
-let totalPagado = 0;
-let totalCosto = 0;
+function armarPersona(persona) {
+  document.getElementById('persona-nombre').textContent = persona;
 
-async function cargarDetalle(persona) {
-  document.getElementById('titulo-detalle').textContent = `Pagos de ${persona}`;
-  const [{ data: pagos }, { data: items }] = await Promise.all([
-    sb.from('pagos').select('*').eq('nombre', persona).order('creado_en'),
-    sb.from('items').select('*').eq('nombre_persona', persona).order('creado_en'),
-  ]);
+  const pagos = PAGOS.filter((p) => p.nombre === persona);
+  const items = ITEMS.filter((i) => i.nombre_persona === persona);
 
-  cuerpoPagos.innerHTML = '';
-  totalPagado = 0;
-  (pagos || []).forEach((p) => {
-    totalPagado += Number(p.monto || 0);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="nowrap">${escapar(fechaCorta(p.fecha_comprobante))}</td>
-      <td>${escapar(p.artista)}</td>
-      <td class="nowrap">${escapar(colones(p.monto, false))}</td>
-      <td>${escapar(p.detalle || '—')}</td>
-      <td class="referencia">${escapar(p.referencia)}</td>
-    `;
-    cuerpoPagos.appendChild(tr);
-  });
-  if (!pagos || !pagos.length) {
-    cuerpoPagos.innerHTML = '<tr><td colspan="5">Sin pagos registrados.</td></tr>';
-  }
+  document.getElementById('cuerpo-pagos').innerHTML = pagos.length
+    ? pagos.map((p) => `<tr>
+        <td class="nowrap">${escapar(fechaCorta(p.fecha_comprobante))}</td>
+        <td>${escapar(p.artista)}</td>
+        <td class="num">${escapar(colones(p.monto))}</td>
+        <td>${escapar(p.detalle || '—')}</td>
+        <td class="referencia">${escapar(p.referencia)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5">Sin pagos registrados.</td></tr>';
 
-  cuerpoItems.innerHTML = '';
-  totalCosto = 0;
-  (items || []).forEach((it) => {
-    totalCosto += Number(it.precio || 0);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapar(it.item)}</td>
-      <td class="nowrap">${escapar(colones(it.precio, false))}</td>
-      <td><button class="borrar-item" data-id="${escapar(it.id)}" title="Quitar">✕</button></td>
-    `;
-    cuerpoItems.appendChild(tr);
-  });
-  if (!items || !items.length) {
-    cuerpoItems.innerHTML = '<tr><td colspan="3">Sin items todavía.</td></tr>';
-  }
+  document.getElementById('cuerpo-items').innerHTML = items.length
+    ? items.map((i) => `<tr>
+        <td>${escapar(i.item)}</td>
+        <td class="num">${escapar(colones(i.precio))}</td>
+        <td><button class="borrar-item" data-id="${escapar(i.id)}" title="Quitar">✕</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="3">Sin items todavía.</td></tr>';
 
-  cuerpoItems.querySelectorAll('.borrar-item').forEach((btn) => {
+  document.querySelectorAll('#cuerpo-items .borrar-item').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await sb.from('items').delete().eq('id', btn.dataset.id);
-      cargarDetalle(persona);
-      cargarPersonas();
+      await cargarTodo();
+      armarPersona(persona);
     });
   });
 
-  actualizarResumen();
+  const pagado = pagos.reduce((a, p) => a + Number(p.monto || 0), 0);
+  const costo = items.reduce((a, i) => a + Number(i.precio || 0), 0);
+  const saldo = costo - pagado;
+
+  document.getElementById('cifra-pagado').textContent = colones(pagado);
+  document.getElementById('cifra-costo').textContent = colones(costo);
+  pintarSaldo(
+    document.getElementById('tarjeta-saldo'),
+    document.getElementById('etiqueta-saldo'),
+    document.getElementById('cifra-saldo'),
+    saldo, 'Saldo pendiente'
+  );
+
+  document.getElementById('res-costo').textContent = colones(costo);
+  document.getElementById('res-pagado').textContent = colones(pagado);
+  pintarSaldo(
+    document.getElementById('res-tarjeta'),
+    document.getElementById('res-etiqueta'),
+    document.getElementById('res-saldo'),
+    saldo, 'Saldo pendiente'
+  );
 }
 
-function actualizarResumen() {
-  cifraCosto.textContent = formatoCRC.format(totalCosto);
-  cifraPagado.textContent = formatoCRC.format(totalPagado);
-  const saldo = totalCosto - totalPagado;
-  tarjetaSaldo.classList.remove('al-dia', 'pendiente');
-  if (saldo <= 0) {
-    tarjetaSaldo.classList.add('al-dia');
-    etiquetaSaldo.textContent = saldo < 0 ? 'Pagó de más' : 'Al día';
-    cifraSaldo.textContent = formatoCRC.format(Math.abs(saldo));
-  } else {
-    tarjetaSaldo.classList.add('pendiente');
-    etiquetaSaldo.textContent = 'Saldo pendiente';
-    cifraSaldo.textContent = formatoCRC.format(saldo);
-  }
-}
-
-btnAgregarItem.addEventListener('click', async () => {
+document.getElementById('btn-agregar-item').addEventListener('click', async () => {
   const persona = selectPersona.value;
-  const item = nuevoItem.value.trim();
+  const item = document.getElementById('nuevo-item').value.trim();
   const precio = Number(nuevoPrecio.value);
+  const el = document.getElementById('mensaje-item');
+
   if (!persona || !item || !precio) {
-    mensaje(mensajeItem, 'Escribe el nombre del item.', 'error');
+    mensaje(el, 'Escribe el nombre del item.', 'error');
     return;
   }
-  mensaje(mensajeItem, '', '');
+  mensaje(el, '', '');
+
   const { error } = await sb.from('items').insert({ nombre_persona: persona, item, precio });
   if (error) {
-    mensaje(mensajeItem, 'No se pudo agregar el item.', 'error');
+    mensaje(el, 'No se pudo agregar el item.', 'error');
     return;
   }
-  nuevoItem.value = '';
-  cargarDetalle(persona);
-  cargarPersonas();   // los totales generales cambiaron
+  document.getElementById('nuevo-item').value = '';
+  await cargarTodo();
+  armarPersona(persona);
 });
 
-// ---------- exportar a Excel ----------
+// ==================== LISTADO TOTAL ====================
 //
-// Se arma en el navegador con los datos que ya trae la sesión.
-// Tres hojas: pagos, items, y un resumen con el saldo por persona.
-btnExportar.addEventListener('click', async () => {
-  btnExportar.disabled = true;
-  btnExportar.textContent = 'Preparando…';
+// Ojo: acá el agrupado por persona usa el nombre del COMPROBANTE
+// (el remitente que leyó el OCR), no el que escribió quien subió
+// el pago. Es el dato que respalda el banco.
+function nombreComprobante(p) {
+  return p.remitente || p.nombre || '—';
+}
 
-  try {
-    const [{ data: pagos }, { data: items }] = await Promise.all([
-      sb.from('pagos').select('*').order('creado_en'),
-      sb.from('items').select('*').order('creado_en'),
-    ]);
+function armarTotal() {
+  // --- listado de pagos ---
+  document.getElementById('total-pagos').innerHTML = PAGOS.length
+    ? PAGOS.map((p) => `<tr>
+        <td class="nowrap">${escapar(fechaCorta(p.fecha_comprobante))}</td>
+        <td>${escapar(p.nombre)}</td>
+        <td>${escapar(nombreComprobante(p))}</td>
+        <td>${escapar(p.artista)}</td>
+        <td class="num">${escapar(colones(p.monto))}</td>
+        <td class="referencia">${escapar(p.referencia)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6">Sin pagos registrados.</td></tr>';
 
-    const hojaPagos = (pagos || []).map((p) => ({
-      Nombre: p.nombre,
-      Vestuario: p.artista,
-      Fecha: p.fecha_comprobante || '',
-      'Fecha legible': fechaCorta(p.fecha_comprobante),
-      Monto: Number(p.monto || 0),
-      Detalle: p.detalle || '',
-      'Quien envía': p.remitente || '',
-      'Cuenta origen': p.cuenta_origen || '',
-      Referencia: p.referencia,
-      Banco: p.banco || '',
-      Registrado: p.creado_en ? new Date(p.creado_en).toLocaleString('es-CR') : '',
-    }));
+  const totalPagado = PAGOS.reduce((a, p) => a + Number(p.monto || 0), 0);
+  document.getElementById('total-pagos-pie').textContent =
+    `${PAGOS.length} pago(s) · ${colones(totalPagado)}`;
 
-    const hojaItems = (items || []).map((i) => ({
-      Nombre: i.nombre_persona,
-      Item: i.item,
-      Precio: Number(i.precio || 0),
-    }));
+  // --- pagos por persona, según el comprobante ---
+  const porComprobante = {};
+  PAGOS.forEach((p) => {
+    const n = nombreComprobante(p);
+    porComprobante[n] = porComprobante[n] || { cantidad: 0, total: 0 };
+    porComprobante[n].cantidad++;
+    porComprobante[n].total += Number(p.monto || 0);
+  });
 
-    // Resumen por persona: total de items vs total pagado
-    const porPersona = {};
-    (pagos || []).forEach((p) => {
-      porPersona[p.nombre] = porPersona[p.nombre] || { pagado: 0, costo: 0 };
-      porPersona[p.nombre].pagado += Number(p.monto || 0);
+  const listaComprobantes = Object.keys(porComprobante)
+    .sort((a, b) => porComprobante[b].total - porComprobante[a].total);
+
+  document.getElementById('total-personas').innerHTML = listaComprobantes.length
+    ? listaComprobantes.map((n) => `<tr>
+        <td>${escapar(n)}</td>
+        <td class="num">${porComprobante[n].cantidad}</td>
+        <td class="num">${escapar(colones(porComprobante[n].total))}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="3">Sin pagos registrados.</td></tr>';
+
+  // --- vestuarios: cuánto puso cada persona en cada uno ---
+  const porVestuario = {};
+  PAGOS.forEach((p) => {
+    const v = p.artista || '—';
+    porVestuario[v] = porVestuario[v] || {};
+    porVestuario[v][p.nombre] = (porVestuario[v][p.nombre] || 0) + Number(p.monto || 0);
+  });
+
+  const filasVest = [];
+  Object.keys(porVestuario).sort((a, b) => a.localeCompare(b, 'es')).forEach((v) => {
+    const personas = Object.keys(porVestuario[v]).sort((a, b) => a.localeCompare(b, 'es'));
+    personas.forEach((n, k) => {
+      filasVest.push(`<tr>
+        <td>${k === 0 ? escapar(v) : ''}</td>
+        <td>${escapar(n)}</td>
+        <td class="num">${escapar(colones(porVestuario[v][n]))}</td>
+      </tr>`);
     });
-    (items || []).forEach((i) => {
-      porPersona[i.nombre_persona] = porPersona[i.nombre_persona] || { pagado: 0, costo: 0 };
-      porPersona[i.nombre_persona].costo += Number(i.precio || 0);
-    });
+    const subtotal = personas.reduce((a, n) => a + porVestuario[v][n], 0);
+    filasVest.push(`<tr class="fila-subtotal">
+      <td></td><td>Total ${escapar(v)}</td>
+      <td class="num">${escapar(colones(subtotal))}</td>
+    </tr>`);
+  });
 
-    const hojaResumen = Object.keys(porPersona)
-      .sort((a, b) => a.localeCompare(b, 'es'))
-      .map((nombre) => ({
-        Nombre: nombre,
-        'Total vestuario': porPersona[nombre].costo,
-        'Total pagado': porPersona[nombre].pagado,
-        Saldo: porPersona[nombre].costo - porPersona[nombre].pagado,
-      }));
+  document.getElementById('total-vestuarios').innerHTML =
+    filasVest.length ? filasVest.join('') : '<tr><td colspan="3">Sin pagos registrados.</td></tr>';
 
-    const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(hojaResumen), 'Resumen');
-    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(hojaPagos), 'Pagos');
-    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(hojaItems), 'Items');
+  // --- resumen ---
+  const mapa = porPersona();
+  const totalCosto = ITEMS.reduce((a, i) => a + Number(i.precio || 0), 0);
 
-    const hoy = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(libro, `vestuarios-${hoy}.xlsx`);
-  } catch (e) {
-    alert('No se pudo generar el Excel. Intenta de nuevo.');
+  document.getElementById('tot-cobrar').textContent = colones(totalCosto);
+  document.getElementById('tot-recibido').textContent = colones(totalPagado);
+  pintarSaldo(
+    document.getElementById('tot-tarjeta'),
+    document.getElementById('tot-etiqueta'),
+    document.getElementById('tot-falta'),
+    totalCosto - totalPagado,
+    'Falta por cobrar'
+  );
+
+  const nombres = Object.keys(mapa).sort((a, b) => a.localeCompare(b, 'es'));
+  document.getElementById('tot-por-persona').innerHTML = nombres.length
+    ? nombres.map((n) => {
+        const { pagado, costo } = mapa[n];
+        const s = costo - pagado;
+        const estado = s > 0
+          ? `<span class="marca-estado debe">Debe ${escapar(colones(s))}</span>`
+          : s < 0
+            ? '<span class="marca-estado demas">Pagó de más</span>'
+            : '<span class="marca-estado aldia">Al día</span>';
+        return `<tr>
+          <td>${escapar(n)}</td>
+          <td class="num">${escapar(colones(costo))}</td>
+          <td class="num">${escapar(colones(pagado))}</td>
+          <td>${estado}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="4">Sin datos.</td></tr>';
+}
+
+// ==================== EXPORTACIONES ====================
+function hoyTexto() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Arma los datos de cada reporte una sola vez; PDF y Excel los comparten
+function datosReporte(cual) {
+  if (cual === 'pagos') {
+    return {
+      titulo: 'Listado de pagos',
+      columnas: ['Fecha', 'Registrado por', 'Comprobante a nombre de', 'Vestuario', 'Monto (CRC)', 'Referencia', 'Banco'],
+      filas: PAGOS.map((p) => [
+        fechaCorta(p.fecha_comprobante), p.nombre, nombreComprobante(p),
+        p.artista, Number(p.monto || 0), p.referencia, p.banco || '',
+      ]),
+      columnaMonto: 4,
+    };
   }
 
-  btnExportar.disabled = false;
-  btnExportar.textContent = 'Descargar todo en Excel';
-});
+  if (cual === 'personas') {
+    const m = {};
+    PAGOS.forEach((p) => {
+      const n = nombreComprobante(p);
+      m[n] = m[n] || { cantidad: 0, total: 0 };
+      m[n].cantidad++;
+      m[n].total += Number(p.monto || 0);
+    });
+    return {
+      titulo: 'Pagos por persona (nombre del comprobante)',
+      columnas: ['Nombre en el comprobante', 'Pagos', 'Total (CRC)'],
+      filas: Object.keys(m).sort((a, b) => m[b].total - m[a].total)
+        .map((n) => [n, m[n].cantidad, m[n].total]),
+      columnaMonto: 2,
+    };
+  }
 
-function escapar(t) {
-  const d = document.createElement('div');
-  d.textContent = t == null ? '' : t;
-  return d.innerHTML;
+  if (cual === 'vestuarios') {
+    const v = {};
+    PAGOS.forEach((p) => {
+      const a = p.artista || '—';
+      v[a] = v[a] || {};
+      v[a][p.nombre] = (v[a][p.nombre] || 0) + Number(p.monto || 0);
+    });
+    const filas = [];
+    Object.keys(v).sort((a, b) => a.localeCompare(b, 'es')).forEach((a) => {
+      Object.keys(v[a]).sort((x, y) => x.localeCompare(y, 'es'))
+        .forEach((n) => filas.push([a, n, v[a][n]]));
+      filas.push([a, 'TOTAL', Object.values(v[a]).reduce((s, x) => s + x, 0)]);
+    });
+    return {
+      titulo: 'Vestuarios — monto por persona',
+      columnas: ['Vestuario', 'Persona', 'Monto (CRC)'],
+      filas,
+      columnaMonto: 2,
+    };
+  }
+
+  // resumen
+  const mapa = porPersona();
+  return {
+    titulo: 'Resumen por persona',
+    columnas: ['Persona', 'Total vestuario (CRC)', 'Total pagado (CRC)', 'Saldo (CRC)', 'Estado'],
+    filas: Object.keys(mapa).sort((a, b) => a.localeCompare(b, 'es')).map((n) => {
+      const { pagado, costo } = mapa[n];
+      const s = costo - pagado;
+      return [n, costo, pagado, s, s > 0 ? 'Debe' : s < 0 ? 'Pagó de más' : 'Al día'];
+    }),
+    columnasMonto: [1, 2, 3],
+  };
 }
+
+function exportarExcel(cual) {
+  const r = datosReporte(cual);
+  const hoja = [r.columnas, ...r.filas];
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(hoja), r.titulo.slice(0, 28));
+  XLSX.writeFile(libro, `${cual}-${hoyTexto()}.xlsx`);
+}
+
+function exportarPDF(cual) {
+  const r = datosReporte(cual);
+  const apaisado = r.columnas.length > 4;
+  const doc = new jsPDF({ orientation: apaisado ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
+
+  doc.setFontSize(15);
+  doc.text('Vestuarios Elvira', 40, 40);
+  doc.setFontSize(11);
+  doc.setTextColor(90);
+  doc.text(`${r.titulo} · ${hoyTexto()}`, 40, 58);
+
+  // Las columnas de dinero se formatean y se alinean a la derecha
+  const cols = r.columnasMonto || (r.columnaMonto != null ? [r.columnaMonto] : []);
+  const filas = r.filas.map((f) =>
+    f.map((celda, k) => (cols.includes(k) ? numero(celda) : String(celda == null ? '' : celda)))
+  );
+  const estilosCol = {};
+  cols.forEach((k) => { estilosCol[k] = { halign: 'right' }; });
+
+  doc.autoTable({
+    head: [r.columnas],
+    body: filas,
+    startY: 74,
+    styles: { fontSize: 8, cellPadding: 4 },
+    headStyles: { fillColor: [47, 93, 74], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 245, 240] },
+    columnStyles: estilosCol,
+    margin: { left: 40, right: 40 },
+  });
+
+  doc.save(`${cual}-${hoyTexto()}.pdf`);
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-exportar]');
+  if (!b) return;
+  const [cual, formato] = b.dataset.exportar.split('-');
+  try {
+    if (formato === 'pdf') exportarPDF(cual);
+    else exportarExcel(cual);
+  } catch (err) {
+    alert('No se pudo generar el archivo.');
+  }
+});
 
 revisarSesion();
 </script>
