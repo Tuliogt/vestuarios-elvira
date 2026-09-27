@@ -90,6 +90,52 @@ revisar('referencia', bcr.campos.referencia, '2026091215283000448723877');
 revisar('remitente', bcr.campos.remitente, 'VALERIO PEREZ CINTHYA VANESSA');
 revisar('cuenta origen', bcr.campos.cuenta_origen, 'AH CR59015202909005529336 — VALERIO PEREZ CINTHYA VANESSA');
 
+console.log('\n=== Variantes reales del OCR (BAC) ===');
+
+// El BAC imprime los centavos en letra más chica: Vision a veces
+// los devuelve en una línea aparte, o con un espacio de por medio.
+const BAC_CENTAVOS_PARTIDOS = `BAC
+Referencia
+20260916102840005210721 69
+Fecha
+16 septiembre 2026
+Hora
+2:43 PM
+Monto
+\u20A16,000.
+00
+Detalle
+Camisa chamo`;
+
+const r1 = parsearComprobante(BAC_CENTAVOS_PARTIDOS);
+revisar('centavos en línea aparte', r1.campos.monto, 6000);
+revisar('  y la fecha sigue bien', r1.campos.fecha, '2026-09-16');
+
+const BAC_CENTAVOS_ESPACIO = BAC_CENTAVOS_PARTIDOS.replace('\u20A16,000.\n00', '\u20A16,000. 00');
+revisar('centavos con espacio', parsearComprobante(BAC_CENTAVOS_ESPACIO).campos.monto, 6000);
+
+// Vision puede leer el símbolo de colón como C o ¢
+revisar('simbolo leido como C', parsearComprobante(BAC_CENTAVOS_PARTIDOS.replace('\u20A1','C')).campos.monto, 6000);
+revisar('simbolo leido como ¢', parsearComprobante(BAC_CENTAVOS_PARTIDOS.replace('\u20A1','¢')).campos.monto, 6000);
+
+// Vision suele devolver las tablas por columnas: primero todas
+// las etiquetas, después todos los valores.
+const BAC_POR_COLUMNAS = `BAC
+Referencia
+20260916102840005210721 69
+Fecha
+Hora
+Monto
+Detalle
+16 septiembre 2026
+2:43 PM
+\u20A16,000.00
+Camisa chamo`;
+
+const r2 = parsearComprobante(BAC_POR_COLUMNAS);
+revisar('leido por columnas', r2.campos.monto, 6000);
+revisar('  no confunde con el día', r2.campos.monto !== 16, true);
+
 console.log('\n=== Texto vacío / basura ===');
 const vacio = parsearComprobante('');
 revisar('sin texto no revienta', vacio.campos.referencia, null);

@@ -39,7 +39,6 @@ const CONFIAR_PROXY = process.env.CONFIAR_EN_PROXY !== 'false';
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const CODIGO_EVENTO = (process.env.CODIGO_EVENTO || '').trim();
 
 const limiteRegistro = crearLimitador({ maximo: 12, ventanaMs: 10 * 60 * 1000 });
 
@@ -117,7 +116,6 @@ servidor.listen(PUERTO, '0.0.0.0', () => {
   if (!SUPABASE_URL) faltan.push('SUPABASE_URL');
   if (!SERVICE_KEY) faltan.push('SUPABASE_SERVICE_ROLE_KEY');
   if (faltan.length) console.warn('AVISO: faltan variables:', faltan.join(', '));
-  if (!CODIGO_EVENTO) console.warn('AVISO: CODIGO_EVENTO vacío — el formulario queda abierto a cualquiera con el enlace.');
 });
 
 // ------------------------------------------------------------
@@ -151,7 +149,6 @@ function servirConfig(res) {
   const cuerpo = `window.SUPABASE_URL = ${JSON.stringify(SUPABASE_URL)};
 window.SUPABASE_ANON_KEY = ${JSON.stringify(process.env.SUPABASE_ANON_KEY || '')};
 window.ARTISTAS = ${JSON.stringify(listaArtistas())};
-window.PIDE_CODIGO = ${CODIGO_EVENTO ? 'true' : 'false'};
 `;
   res.writeHead(200, cabeceras({
     'content-type': 'application/javascript; charset=utf-8',
@@ -192,13 +189,6 @@ async function manejarRegistro(req, res) {
     return json(res, { error: String(e.message || e) }, 413);
   }
 
-  if (CODIGO_EVENTO) {
-    const dado = String((cuerpo && cuerpo.codigo) || '').trim().toLowerCase();
-    if (!comparaSegura(dado, CODIGO_EVENTO.toLowerCase())) {
-      return json(res, { error: 'El código del evento no es correcto.' }, 403);
-    }
-  }
-
   const nombre = textoLimpio(cuerpo.nombre, 120);
   const artista = textoLimpio(cuerpo.artista, 80);
 
@@ -232,11 +222,25 @@ async function manejarRegistro(req, res) {
 
   imagen = null; // la imagen se descarta aquí; nunca se guarda
 
+  // Diagnóstico: con DEBUG_OCR=true se imprime el texto que leyó
+  // Vision, para poder ajustar el parser ante un banco nuevo.
+  // Dejar apagado en uso normal: los logs mostrarían nombres y
+  // montos de la gente.
+  if (process.env.DEBUG_OCR === 'true') {
+    console.log('--- TEXTO OCR (inicio) ---');
+    console.log(textoOcr);
+    console.log('--- TEXTO OCR (fin) ---');
+  }
+
   if (!textoOcr || !textoOcr.trim()) {
     return json(res, { error: 'No se detectó texto en la imagen. Sube una captura más clara.' }, 422);
   }
 
   const { campos, banco } = parsearComprobante(textoOcr);
+
+  if (process.env.DEBUG_OCR === 'true') {
+    console.log('--- CAMPOS EXTRAIDOS ---', JSON.stringify({ ...campos, banco }));
+  }
 
   if (!campos.referencia && process.env.ANTHROPIC_API_KEY) {
     const rescatado = await rescatarConClaude(textoOcr, process.env.ANTHROPIC_API_KEY);
@@ -399,13 +403,6 @@ ${textoOcr.slice(0, 4000)}
 // ------------------------------------------------------------
 // Utilidades
 // ------------------------------------------------------------
-function comparaSegura(a, b) {
-  const ba = Buffer.from(String(a));
-  const bb = Buffer.from(String(b));
-  if (ba.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ba, bb);
-}
-
 function leerJson(req) {
   return new Promise((resolve, reject) => {
     const trozos = [];

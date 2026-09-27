@@ -23,8 +23,15 @@ function sinTildes(t) {
 }
 
 function normalizar(texto) {
-  return texto
-    .replace(/\r/g, '')
+  let t = String(texto).replace(/\r/g, '');
+
+  // El OCR puede leer el símbolo de colón de varias formas
+  // (C con barra, ¢, C/, o simplemente "C" pegada a un número).
+  // Se unifican todas a ₡ para que el resto del parser no tenga
+  // que conocer cada variante.
+  t = t.replace(/[¢₵C]\/?(?=\s?\d)/g, '\u20A1');
+
+  return t
     .split('\n')
     .map((l) => l.replace(/[ \t]+/g, ' ').trim())
     .filter((l) => l.length > 0)
@@ -300,6 +307,37 @@ function limpiarNombre(t) {
 }
 
 // ------------------------------------------------------------
+// El BAC imprime los centavos en letra más chica, y el OCR a
+// veces los separa del resto del monto:
+//     ₡6,000.        →  ₡6,000.00
+//     00
+// También cubre el caso en que quedan en la misma línea con un
+// espacio de por medio: "₡6,000. 00".
+// ------------------------------------------------------------
+function unirCentavosPartidos(texto) {
+  const lineas = texto.split('\n');
+  const salida = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const actual = lineas[i];
+    const siguiente = lineas[i + 1];
+
+    // Una línea que termina en separador decimal seguida de dos
+    // dígitos solos: son los centavos del monto anterior.
+    if (/[\d][.,]\s*$/.test(actual) && siguiente && /^\d{2}$/.test(siguiente.trim())) {
+      salida.push(actual.trim() + siguiente.trim());
+      i++; // la siguiente ya se consumió
+      continue;
+    }
+
+    // Mismo caso pero dentro de una sola línea
+    salida.push(actual.replace(/([\d][.,])\s+(\d{2})\b/g, '$1$2'));
+  }
+
+  return salida.join('\n');
+}
+
+// ------------------------------------------------------------
 // Detectar el banco (solo informativo, para depurar)
 // ------------------------------------------------------------
 function detectarBanco(texto) {
@@ -318,7 +356,7 @@ function detectarBanco(texto) {
 // Función principal
 // ------------------------------------------------------------
 export function parsearComprobante(textoCrudo) {
-  const texto = normalizar(textoCrudo || '');
+  const texto = unirCentavosPartidos(normalizar(textoCrudo || ''));
   if (!texto) {
     return { campos: vacio(), avisos: ['No se detectó texto en la imagen.'], banco: null };
   }

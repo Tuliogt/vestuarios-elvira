@@ -21,12 +21,6 @@
     <h1>Registrar tu pago</h1>
     <p>Sube la captura de tu comprobante SINPE. Leemos el monto y la referencia directamente de la imagen.</p>
 
-    <div id="bloque-codigo" class="oculto">
-      <label for="codigo">Código del evento</label>
-      <div class="ayuda">Te lo dio doña Elvira o la organización del show.</div>
-      <input type="text" id="codigo" autocomplete="off" />
-    </div>
-
     <label for="nombre">Tu nombre completo</label>
     <input type="text" id="nombre" placeholder="Nombre y apellidos" autocomplete="name" />
 
@@ -85,7 +79,6 @@ const elFormulario = document.getElementById('formulario');
 const elCargando = document.getElementById('cargando');
 const elListo = document.getElementById('listo');
 
-const elCodigo = document.getElementById('codigo');
 const elNombre = document.getElementById('nombre');
 const elArtista = document.getElementById('artista');
 const elInputArchivo = document.getElementById('input-archivo');
@@ -130,8 +123,6 @@ function fechaLarga(iso) {
   return `${Number(m[3])} de ${MESES_LARGOS[Number(m[2]) - 1]} de ${m[1]}`;
 }
 
-
-if (window.PIDE_CODIGO) document.getElementById('bloque-codigo').classList.remove('oculto');
 
 (window.ARTISTAS || []).forEach((a) => {
   const op = document.createElement('option');
@@ -222,7 +213,6 @@ elBtnEnviar.addEventListener('click', async () => {
         nombre: elNombre.value.trim(),
         artista: elArtista.value,
         imagenBase64: base64Imagen,
-        codigo: elCodigo ? elCodigo.value.trim() : '',
       }),
     });
 

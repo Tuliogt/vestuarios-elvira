@@ -58,7 +58,6 @@ La app es un servidor Node **sin dependencias externas** — no hay `npm install
    | `SUPABASE_ANON_KEY` | sí | Login del panel |
    | `SUPABASE_SERVICE_ROLE_KEY` | sí | **Secreta.** El servidor escribe con esta llave |
    | `GOOGLE_VISION_API_KEY` | sí | OCR del comprobante |
-   | `CODIGO_EVENTO` | no | Código para poder subir un comprobante |
    | `ANTHROPIC_API_KEY` | no | Respaldo cuando el parser no reconoce el banco |
    | `ARTISTAS` | no | Lista separada por comas |
    | `PORT` | no | Por defecto `3000` |
