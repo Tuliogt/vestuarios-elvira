@@ -90,6 +90,77 @@ revisar('referencia', bcr.campos.referencia, '2026091215283000448723877');
 revisar('remitente', bcr.campos.remitente, 'VALERIO PEREZ CINTHYA VANESSA');
 revisar('cuenta origen', bcr.campos.cuenta_origen, 'AH CR59015202909005529336 — VALERIO PEREZ CINTHYA VANESSA');
 
+console.log('\n=== Texto REAL de Vision (BAC, tomado de producción) ===');
+
+// Copiado literal de los logs. Vision devuelve las etiquetas de
+// la tabla juntas y después sus valores, y lee el ₡ como "$".
+const BAC_REAL = `BAC
+Notificación de transferencia
+SINPE Móvil
+Hola,
+Le informamos que DIEGO ALEJANDRO
+HERNANDEZ GARCIA realizó una
+transferencia por medio de SINPE Móvil al
+teléfono N° 70180075 a nombre de
+ESTEBAN JAVIER BARBOZA RIVERA.
+Referencia
+2026091610284000521072169
+Fecha
+Hora
+Monto
+16 septiembre 2026
+2:43 PM
+$6,000.00
+Detalle
+Camisa chamo`;
+
+const real = parsearComprobante(BAC_REAL);
+console.log(JSON.stringify(real.campos, null, 2));
+revisar('monto (era 16 por el día)', real.campos.monto, 6000);
+revisar('fecha', real.campos.fecha, '2026-09-16');
+revisar('referencia', real.campos.referencia, '2026091610284000521072169');
+revisar('detalle', real.campos.detalle, 'Camisa chamo');
+revisar('remitente', real.campos.remitente, 'DIEGO ALEJANDRO HERNANDEZ GARCIA');
+revisar('banco', real.banco, 'BAC');
+
+console.log('\n=== Texto REAL de Vision (BCR, tomado de producción) ===');
+
+// Copiado literal de los logs. Notar que Vision lee el símbolo ₡
+// de TRES formas distintas en el mismo comprobante: 0, € y #.
+const BCR_REAL = `IBCR
+SOMOS EL BANCO DE COSTA RICA
+Documento
+Referencia
+Cuenta origen
+12 de septiembre, 2026
+Comprobante
+Transferencia SINPE Móvil
+SINPE Móvil destino
+19:03
+48723877
+2026091215283000448723877
+AH CR59015202909005529336
+VALERIO PEREZ CINTHYA VANESSA
+Esteban Javier Barboza
+Rivera
+7018-0075
+Monto debitado
+Comisión
+Monto transferido
+Motivo
+06.000,00
+€0,00
+#6.000,00
+Fernanda Hernandez`;
+
+const rb = parsearComprobante(BCR_REAL);
+console.log(JSON.stringify(rb.campos, null, 2));
+revisar('monto (no la comisión)', rb.campos.monto, 6000);
+revisar('fecha', rb.campos.fecha, '2026-09-12');
+revisar('referencia', rb.campos.referencia, '2026091215283000448723877');
+revisar('motivo', rb.campos.detalle, 'Fernanda Hernandez');
+revisar('banco', rb.banco, 'BCR');
+
 console.log('\n=== Variantes reales del OCR (BAC) ===');
 
 // El BAC imprime los centavos en letra más chica: Vision a veces

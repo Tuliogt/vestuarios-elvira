@@ -29,7 +29,16 @@ function normalizar(texto) {
   // (C con barra, ¢, C/, o simplemente "C" pegada a un número).
   // Se unifican todas a ₡ para que el resto del parser no tenga
   // que conocer cada variante.
-  t = t.replace(/[¢₵C]\/?(?=\s?\d)/g, '\u20A1');
+  // Vision lee el símbolo de colón (₡) de muchas formas según la
+  // fuente: $ y ¢ en el BAC; 0, € y # en el BCR — a veces las
+  // tres en el MISMO comprobante. Se unifican todas a ₡.
+  //
+  // El "0" es el caso delicado: se funde con el número y
+  // "₡6.000,00" llega como "06.000,00". Por eso solo se trata
+  // como símbolo cuando va seguido de un dígito y luego un
+  // separador de miles — un cero real nunca se escribe así.
+  t = t.replace(/\b0(?=\d[.,]\d{3}\b)/g, '\u20A1');
+  t = t.replace(/[¢₵C$€#](?=\s?\d)/g, '\u20A1');
 
   return t
     .split('\n')
@@ -307,6 +316,72 @@ function limpiarNombre(t) {
 }
 
 // ------------------------------------------------------------
+// Vision lee las tablas por columnas: primero varias etiquetas
+// seguidas, después sus valores en el mismo orden. Un comprobante
+// del BAC llega así:
+//
+//     Fecha                 Fecha  16 septiembre 2026
+//     Hora                  Hora   2:43 PM
+//     Monto        →        Monto  ₡6,000.00
+//     16 septiembre 2026
+//     2:43 PM
+//     ₡6,000.00
+//
+// Sin esto, "la línea siguiente a Monto" es otra etiqueta o el
+// valor equivocado — que es como un monto de ₡6.000 se leyó
+// como ₡16 (el día de la fecha).
+// ------------------------------------------------------------
+const ROTULOS_TABLA = [
+  'fecha', 'hora', 'monto', 'detalle', 'motivo', 'referencia',
+  'documento', 'comision', 'estado', 'tipo', 'descripcion', 'concepto',
+  // Variantes del BCR
+  'monto debitado', 'monto transferido', 'monto enviado', 'monto acreditado',
+  'cuenta origen', 'cuenta destino', 'sinpe movil destino', 'sinpe movil origen',
+];
+
+function esRotuloSolo(linea) {
+  const l = sinTildes(String(linea).toLowerCase().trim());
+  return ROTULOS_TABLA.includes(l);
+}
+
+function emparejarColumnas(texto) {
+  const lineas = texto.split('\n');
+  const salida = [];
+  let i = 0;
+
+  while (i < lineas.length) {
+    // ¿Arranca acá un bloque de dos o más etiquetas seguidas?
+    let fin = i;
+    while (fin < lineas.length && esRotuloSolo(lineas[fin])) fin++;
+    const cantidad = fin - i;
+
+    if (cantidad >= 2) {
+      const etiquetas = lineas.slice(i, fin);
+
+      // Los valores son las líneas que siguen, mientras no sean
+      // otra etiqueta y alcancen para todas.
+      const valores = [];
+      let j = fin;
+      while (j < lineas.length && valores.length < cantidad && !esRotuloSolo(lineas[j])) {
+        valores.push(lineas[j]);
+        j++;
+      }
+
+      if (valores.length === cantidad) {
+        etiquetas.forEach((e, k) => salida.push(`${e} ${valores[k]}`));
+        i = j;
+        continue;
+      }
+    }
+
+    salida.push(lineas[i]);
+    i++;
+  }
+
+  return salida.join('\n');
+}
+
+// ------------------------------------------------------------
 // El BAC imprime los centavos en letra más chica, y el OCR a
 // veces los separa del resto del monto:
 //     ₡6,000.        →  ₡6,000.00
@@ -356,7 +431,7 @@ function detectarBanco(texto) {
 // Función principal
 // ------------------------------------------------------------
 export function parsearComprobante(textoCrudo) {
-  const texto = unirCentavosPartidos(normalizar(textoCrudo || ''));
+  const texto = emparejarColumnas(unirCentavosPartidos(normalizar(textoCrudo || '')));
   if (!texto) {
     return { campos: vacio(), avisos: ['No se detectó texto en la imagen.'], banco: null };
   }
