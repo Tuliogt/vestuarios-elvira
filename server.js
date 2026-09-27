@@ -438,6 +438,25 @@ ${textoOcr.slice(0, 4000)}
 // ------------------------------------------------------------
 // Utilidades
 // ------------------------------------------------------------
+// Quita tildes, signos y espacios de más para poder comparar
+function normalizarNombre(t) {
+  return String(t || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Coinciden si comparten al menos dos palabras de 3+ letras.
+// Tolera que un banco escriba "ELVIA D BRAVO VARGAS" y otro
+// "Elvia Damaris Bravo Vargas".
+function comparteNombre(a, b) {
+  const pa = new Set(a.split(' ').filter((w) => w.length >= 3));
+  const pb = b.split(' ').filter((w) => w.length >= 3);
+  return pb.filter((w) => pa.has(w)).length >= 2;
+}
+
 function leerJson(req) {
   return new Promise((resolve, reject) => {
     const trozos = [];
