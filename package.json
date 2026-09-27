@@ -1,0 +1,12 @@
+{
+  "name": "vestuarios-elvira",
+  "version": "1.0.0",
+  "description": "Registro de pagos SINPE para los vestuarios del show de diciembre",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node src/parser.test.mjs"
+  }
+}

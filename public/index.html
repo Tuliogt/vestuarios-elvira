@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vestuarios Elvira — Registro de pagos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%B5%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+<script src="config.js"></script>
+</head>
+<body>
+<div class="envoltura">
+
+  <div class="marca">
+    <span class="hilo"></span>
+    <span>Vestuarios Elvira · Show de Diciembre</span>
+  </div>
+
+  <!-- FORMULARIO -->
+  <section id="formulario" class="tarjeta">
+    <h1>Registrar tu pago</h1>
+    <p>Sube la captura de tu comprobante SINPE. Leemos el monto y la referencia directamente de la imagen.</p>
+
+    <div id="bloque-codigo" class="oculto">
+      <label for="codigo">Código del evento</label>
+      <div class="ayuda">Te lo dio doña Elvira o la organización del show.</div>
+      <input type="text" id="codigo" autocomplete="off" />
+    </div>
+
+    <label for="nombre">Tu nombre completo</label>
+    <input type="text" id="nombre" placeholder="Nombre y apellidos" autocomplete="name" />
+
+    <label for="artista">Vestuario que estás pagando</label>
+    <select id="artista">
+      <option value="" disabled selected>Selecciona un artista</option>
+    </select>
+
+    <label>Comprobante de pago</label>
+    <div class="ayuda">La captura de pantalla de la notificación SINPE Móvil.</div>
+    <label class="zona-subida" id="zona-subida">
+      <div>
+        <div class="icono">🧵</div>
+        <div class="principal">Toca para elegir la captura</div>
+        <div class="secundario">desde tu galería</div>
+      </div>
+      <input type="file" id="input-archivo" accept="image/*" />
+    </label>
+    <div class="previsualizacion oculto" id="previsualizacion">
+      <img id="imagen-previa" alt="Comprobante seleccionado" />
+    </div>
+
+    <div id="mensaje"></div>
+
+    <button class="boton-primario" id="btn-enviar" disabled>Enviar comprobante</button>
+  </section>
+
+  <!-- CARGANDO -->
+  <section id="cargando" class="tarjeta oculto">
+    <div class="centro-carga">
+      <div class="icono" style="font-size:1.8rem;">✂️</div>
+      <p style="margin-top:10px;">Leyendo tu comprobante…</p>
+      <p style="font-size:0.82rem;">Esto toma unos segundos.</p>
+    </div>
+  </section>
+
+  <!-- CONFIRMACIÓN -->
+  <section id="listo" class="tarjeta oculto">
+    <div class="confirmacion">
+      <div class="sello">✓</div>
+      <h1>¡Pago registrado!</h1>
+      <p>Esto fue lo que leímos de tu comprobante.</p>
+      <div class="resumen-lista" id="resumen"></div>
+    </div>
+    <button class="boton-primario" id="btn-otro">Registrar otro comprobante</button>
+  </section>
+
+  <p class="nota-privacidad">
+    Tu comprobante se usa solo para leer los datos del pago y no se guarda en ningún lado.
+  </p>
+
+</div>
+
+<script>
+const elFormulario = document.getElementById('formulario');
+const elCargando = document.getElementById('cargando');
+const elListo = document.getElementById('listo');
+
+const elCodigo = document.getElementById('codigo');
+const elNombre = document.getElementById('nombre');
+const elArtista = document.getElementById('artista');
+const elInputArchivo = document.getElementById('input-archivo');
+const elZona = document.getElementById('zona-subida');
+const elPrevia = document.getElementById('previsualizacion');
+const elImg = document.getElementById('imagen-previa');
+const elMensaje = document.getElementById('mensaje');
+const elBtnEnviar = document.getElementById('btn-enviar');
+const elBtnOtro = document.getElementById('btn-otro');
+const elResumen = document.getElementById('resumen');
+
+let base64Imagen = null;
+
+// ---------- formato local ----------
+//
+// Intl con es-CR separa los miles con un espacio fino (₡6 000),
+// que no es como se escribe en Costa Rica. Se arma a mano para
+// que quede ₡6.000,00 — con punto de miles y coma decimal.
+function colones(n, conDecimales) {
+  const v = Number(n || 0);
+  const partes = Math.abs(v).toFixed(conDecimales ? 2 : 0).split('.');
+  partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (v < 0 ? '-' : '') + '\u20A1' + partes.join(',');
+}
+
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+
+// "2026-09-16" -> "16 set 2026"  (corto, no se parte en la tabla)
+function fechaCorta(iso) {
+  if (!iso) return '\u2014';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+// "2026-09-16" -> "16 de setiembre de 2026"
+const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
+function fechaLarga(iso) {
+  if (!iso) return '\u2014';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${Number(m[3])} de ${MESES_LARGOS[Number(m[2]) - 1]} de ${m[1]}`;
+}
+
+
+if (window.PIDE_CODIGO) document.getElementById('bloque-codigo').classList.remove('oculto');
+
+(window.ARTISTAS || []).forEach((a) => {
+  const op = document.createElement('option');
+  op.value = a;
+  op.textContent = a;
+  elArtista.appendChild(op);
+});
+
+function mostrar(seccion) {
+  [elFormulario, elCargando, elListo].forEach((s) => s.classList.add('oculto'));
+  seccion.classList.remove('oculto');
+}
+
+function mensaje(texto, tipo) {
+  elMensaje.innerHTML = texto ? `<div class="mensaje ${tipo}">${texto}</div>` : '';
+}
+
+function revisarBoton() {
+  elBtnEnviar.disabled = !(elNombre.value.trim() && elArtista.value && base64Imagen);
+}
+
+elNombre.addEventListener('input', revisarBoton);
+elArtista.addEventListener('change', revisarBoton);
+
+// ---------- selección de archivo ----------
+elInputArchivo.addEventListener('change', (e) => manejarArchivo(e.target.files[0]));
+
+['dragover', 'dragleave', 'drop'].forEach((evt) => {
+  elZona.addEventListener(evt, (e) => {
+    e.preventDefault();
+    elZona.classList.toggle('arrastrando', evt === 'dragover');
+  });
+});
+elZona.addEventListener('drop', (e) => {
+  if (e.dataTransfer.files[0]) manejarArchivo(e.dataTransfer.files[0]);
+});
+
+function manejarArchivo(file) {
+  if (!file) return;
+  mensaje('', '');
+  redimensionar(file, 1400, 0.82).then((dataUrl) => {
+    base64Imagen = dataUrl.split(',')[1];
+    elImg.src = dataUrl;
+    elPrevia.classList.remove('oculto');
+    revisarBoton();
+  }).catch(() => {
+    mensaje('No pudimos abrir esa imagen. Prueba con otra.', 'error');
+  });
+}
+
+// Se reduce en el navegador para que suba rápido desde datos móviles
+function redimensionar(file, maxAncho, calidad) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxAncho) {
+          height = Math.round((height * maxAncho) / width);
+          width = maxAncho;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    lector.onerror = reject;
+    lector.readAsDataURL(file);
+  });
+}
+
+// ---------- enviar ----------
+elBtnEnviar.addEventListener('click', async () => {
+  elBtnEnviar.disabled = true;
+  mensaje('', '');
+  mostrar(elCargando);
+
+  try {
+    const resp = await fetch('/api/registrar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        nombre: elNombre.value.trim(),
+        artista: elArtista.value,
+        imagenBase64: base64Imagen,
+        codigo: elCodigo ? elCodigo.value.trim() : '',
+      }),
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      mostrar(elFormulario);
+      mensaje(escapar(data.error || 'No se pudo registrar el pago.'), 'error');
+      elBtnEnviar.disabled = false;
+      return;
+    }
+
+    mostrarResumen(data.resumen);
+    mostrar(elListo);
+  } catch (e) {
+    mostrar(elFormulario);
+    mensaje('No hay conexión. Intenta de nuevo.', 'error');
+    elBtnEnviar.disabled = false;
+  }
+});
+
+function mostrarResumen(r) {
+  elResumen.innerHTML = `
+    <div class="fila"><span class="etiqueta">Nombre</span><span class="valor">${escapar(r.nombre)}</span></div>
+    <div class="fila"><span class="etiqueta">Vestuario</span><span class="valor">${escapar(r.artista)}</span></div>
+    <div class="fila"><span class="etiqueta">Monto</span><span class="valor">${escapar(colones(r.monto, true))}</span></div>
+    <div class="fila"><span class="etiqueta">Fecha</span><span class="valor">${escapar(fechaLarga(r.fecha))}</span></div>
+    <div class="fila"><span class="etiqueta">Referencia</span><span class="valor referencia">${escapar(r.referencia)}</span></div>
+  `;
+}
+
+elBtnOtro.addEventListener('click', () => {
+  elNombre.value = '';
+  elArtista.value = '';
+  base64Imagen = null;
+  elInputArchivo.value = '';
+  elPrevia.classList.add('oculto');
+  mensaje('', '');
+  revisarBoton();
+  mostrar(elFormulario);
+});
+
+function escapar(t) {
+  const d = document.createElement('div');
+  d.textContent = t == null ? '' : t;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

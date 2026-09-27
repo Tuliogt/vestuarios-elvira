@@ -1,0 +1,404 @@
+/* ============================================================
+   Vestuarios Elvira — sistema visual
+
+   Para cambiar toda la identidad de color, se edita SOLO el
+   bloque "PALETA" de abajo. Nada más en el archivo usa colores
+   literales: todo pasa por estas variables.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---------- PALETA (verde bosque y durazno) ---------- */
+  --fondo:        #F5F5F0;   /* crema tenue, no gris */
+  --tarjeta:      #FFFFFF;
+  --texto:        #1E2620;
+  --suave:        #4F5A52;   /* texto secundario, contraste 7.2 */
+  --borde:        #E2E3DC;
+
+  --primario:     #2F5D4A;   /* acciones */
+  --primario-osc: #24493A;
+
+  --acento:       #D2804F;   /* pendientes, sin alarmar */
+  --acento-suave: #FAE7DA;
+
+  --exito:        #2F5D4A;   /* igual al primario: da unidad */
+  --exito-suave:  #E1EFE8;
+
+  --error:        #A83232;
+  --error-suave:  #FBEAEA;
+  /* ---------- fin de la paleta ---------- */
+
+  --radio:   12px;
+  --radio-s: 9px;
+
+  /* Sombras muy difusas en lugar de bordes duros */
+  --sombra:   0 1px 2px rgba(30, 38, 32, .04), 0 8px 24px rgba(30, 38, 32, .05);
+  --sombra-f: 0 2px 6px rgba(30, 38, 32, .06), 0 16px 40px rgba(30, 38, 32, .07);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--texto);
+  margin: 0 0 0.4em;
+  line-height: 1.2;
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+p { margin: 0 0 1em; color: var(--suave); }
+
+.envoltura { max-width: 520px; margin: 0 auto; padding: 24px 16px 56px; }
+.envoltura.ancha { max-width: 880px; }
+.envoltura.ancha .tarjeta.angosta { max-width: 420px; margin-left: auto; margin-right: auto; }
+
+/* ---------- encabezado de marca ---------- */
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--borde);
+}
+
+.marca .hilo {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--primario);
+  flex: none;
+}
+
+.marca span { font-size: 0.78rem; color: var(--suave); }
+
+/* ---------- tarjetas ---------- */
+.tarjeta {
+  background: var(--tarjeta);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 22px;
+  margin-bottom: 14px;
+  animation: aparecer .22s ease-out;
+}
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta { animation: none; }
+}
+
+/* ---------- formularios ---------- */
+label {
+  display: block;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--texto);
+  margin: 16px 0 6px;
+}
+
+label:first-child { margin-top: 0; }
+
+.ayuda {
+  font-size: 0.79rem;
+  color: var(--suave);
+  margin: -2px 0 6px;
+}
+
+input[type="text"], input[type="email"], input[type="password"],
+input[type="date"], input[type="number"], select, textarea {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 0.97rem;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-s);
+  outline: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primario);
+  background: var(--tarjeta);
+  box-shadow: 0 0 0 3px rgba(47, 93, 74, .12);
+}
+
+select { appearance: auto; }
+
+/* ---------- zona de subida ---------- */
+.zona-subida {
+  display: block;
+  border: 2px dashed var(--borde);
+  border-radius: var(--radio);
+  padding: 26px 14px;
+  text-align: center;
+  background: var(--fondo);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+
+.zona-subida:hover, .zona-subida.arrastrando {
+  border-color: var(--primario);
+  background: var(--tarjeta);
+}
+
+.zona-subida input[type="file"] { display: none; }
+.zona-subida .icono { font-size: 1.7rem; }
+.zona-subida .principal { font-weight: 600; font-size: 0.93rem; margin-top: 5px; color: var(--texto); }
+
+/* El bloque vive dentro de un <label>, que fuerza font-weight 600.
+   Sin esta regla el texto secundario sale en negrita. */
+.zona-subida .secundario { font-size: 0.8rem; font-weight: 400; color: var(--suave); margin-top: 2px; }
+
+.previsualizacion { margin-top: 12px; text-align: center; }
+
+.previsualizacion img {
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: var(--radio-s);
+  border: 1px solid var(--borde);
+}
+
+/* ---------- botones ---------- */
+button, .boton {
+  font: inherit;
+  font-size: 0.96rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radio-s);
+  padding: 14px 20px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 18px;
+  transition: background .15s, border-color .15s, transform .08s, opacity .15s;
+}
+
+button:active { transform: scale(.99); }
+
+.boton-primario { background: var(--primario); color: #fff; }
+.boton-primario:hover { background: var(--primario-osc); }
+.boton-primario:disabled {
+  background: var(--borde);
+  color: var(--suave);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.boton-secundario {
+  background: transparent;
+  color: var(--suave);
+  border: 1px solid var(--borde);
+}
+.boton-secundario:hover { border-color: var(--suave); color: var(--texto); }
+
+.boton-texto {
+  background: none;
+  border: none;
+  color: var(--primario);
+  font-weight: 600;
+  font-size: 0.87rem;
+  padding: 6px 0;
+  width: auto;
+  margin-top: 10px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- mensajes ---------- */
+.mensaje {
+  border-radius: var(--radio-s);
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  margin-top: 14px;
+}
+
+.mensaje.error  { background: var(--error-suave);  color: var(--error); }
+.mensaje.exito  { background: var(--exito-suave);  color: var(--exito); }
+.mensaje.aviso  { background: var(--acento-suave); color: var(--primario); }
+
+.centro-carga { text-align: center; padding: 30px 10px; color: var(--suave); }
+
+.oculto { display: none !important; }
+
+/* ---------- confirmación ---------- */
+.confirmacion { text-align: center; padding: 8px 0 2px; }
+
+.confirmacion .sello {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: var(--exito-suave);
+  color: var(--exito);
+  font-size: 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.resumen-lista {
+  text-align: left;
+  border-top: 1px dashed var(--borde);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.resumen-lista .fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 0.9rem;
+}
+
+.resumen-lista .fila .etiqueta { color: var(--suave); flex: none; }
+
+.resumen-lista .fila .valor {
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen-lista .fila .valor.referencia { font-size: 0.82rem; }
+
+.nota-privacidad {
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--suave);
+  margin-top: 6px;
+  padding: 0 10px;
+}
+
+/* ---------- panel ---------- */
+.encabezado-admin {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.encabezado-admin .boton-texto { margin: 0; }
+
+.tabla-envoltura { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+
+th, td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+th { font-size: 0.74rem; color: var(--suave); font-weight: 600; }
+
+/* Cifras tabulares: las columnas de montos quedan a plomo */
+td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.nowrap, th.nowrap { white-space: nowrap; }
+td.referencia { font-size: 0.78rem; color: var(--suave); white-space: nowrap; }
+
+tr.seleccionable { cursor: pointer; transition: background .12s; }
+tr.seleccionable:hover { background: var(--fondo); }
+
+.pista-scroll { display: none; font-size: 0.74rem; color: var(--suave); margin-top: 7px; }
+
+@media (max-width: 700px) { .pista-scroll { display: block; } }
+
+/* ---------- etiquetas de estado ---------- */
+.marca-estado {
+  display: inline-block;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.marca-estado.debe  { background: var(--acento-suave); color: var(--primario); }
+.marca-estado.aldia { background: var(--exito-suave);  color: var(--exito); }
+.marca-estado.demas { background: var(--error-suave);  color: var(--error); }
+
+/* ---------- cifras y saldos ---------- */
+.tarjetas-resumen {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 4px 0 0;
+}
+
+.tarjeta-cifra {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-s);
+  padding: 13px;
+}
+
+.tarjeta-cifra .etiqueta { font-size: 0.76rem; color: var(--suave); margin-bottom: 3px; }
+
+.tarjeta-cifra .cifra {
+  font-family: 'Fraunces', serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-saldo {
+  grid-column: 1 / -1;
+  border-radius: var(--radio-s);
+  padding: 15px;
+  text-align: center;
+}
+
+.tarjeta-saldo.al-dia    { background: var(--exito-suave); }
+.tarjeta-saldo.pendiente { background: var(--acento-suave); }
+
+.tarjeta-saldo .etiqueta { font-size: 0.78rem; color: var(--suave); }
+
+.tarjeta-saldo .cifra {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-saldo.al-dia .cifra    { color: var(--exito); }
+.tarjeta-saldo.pendiente .cifra { color: var(--primario); }
+
+.grupo-en-linea { display: flex; gap: 10px; align-items: flex-end; }
+.grupo-en-linea > div { flex: 1; }
+
+.borrar-item {
+  background: none;
+  border: none;
+  color: var(--error);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  width: auto;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .tarjetas-resumen { grid-template-columns: 1fr; }
+  .grupo-en-linea { flex-direction: column; align-items: stretch; }
+}
