@@ -70,10 +70,35 @@
     <div class="confirmacion">
       <div class="sello">✓</div>
       <h1>¡Pago registrado!</h1>
+
+      <div class="caja-codigo">
+        <div class="etiqueta-codigo">Tu código de consulta</div>
+        <div class="codigo" id="codigo-generado">—</div>
+        <div class="aviso-codigo">
+          Tomale una captura a esta pantalla. Con este código podés consultar tu pago después.
+        </div>
+      </div>
+
       <p>Esto fue lo que leímos de tu comprobante.</p>
       <div class="resumen-lista" id="resumen"></div>
     </div>
     <button class="boton-primario" id="btn-otro">Registrar otro comprobante</button>
+  </section>
+
+  <!-- Consultar un pago ya registrado -->
+  <section id="consulta" class="tarjeta">
+    <h2>¿Ya registraste un pago?</h2>
+    <p>Escribí tu código de consulta para ver los datos de tu pago.</p>
+
+    <label for="codigo-consulta">Código de consulta</label>
+    <div class="ayuda">Dos letras y tres números, por ejemplo AE472.</div>
+    <input type="text" id="codigo-consulta" maxlength="5" autocomplete="off"
+           inputmode="text" placeholder="AE472" class="entrada-codigo" />
+
+    <div id="mensaje-consulta"></div>
+    <div id="resultado-consulta" class="oculto"></div>
+
+    <button class="boton-secundario" id="btn-consultar">Consultar</button>
   </section>
 
   <p class="nota-privacidad">
@@ -254,7 +279,75 @@ elBtnEnviar.addEventListener('click', async () => {
   }
 });
 
+// ---------- consultar un pago por su código ----------
+const elCodigoConsulta = document.getElementById('codigo-consulta');
+const elMensajeConsulta = document.getElementById('mensaje-consulta');
+const elResultadoConsulta = document.getElementById('resultado-consulta');
+const elBtnConsultar = document.getElementById('btn-consultar');
+
+// Se escribe en mayúsculas y solo se aceptan vocales y dígitos
+elCodigoConsulta.addEventListener('input', () => {
+  const limpio = elCodigoConsulta.value.toUpperCase().replace(/[^AEIOU0-9]/g, '');
+  if (limpio !== elCodigoConsulta.value) elCodigoConsulta.value = limpio;
+});
+
+elCodigoConsulta.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') elBtnConsultar.click();
+});
+
+elBtnConsultar.addEventListener('click', async () => {
+  const codigo = elCodigoConsulta.value.trim().toUpperCase();
+  elResultadoConsulta.classList.add('oculto');
+  elMensajeConsulta.innerHTML = '';
+
+  if (!/^[AEIOU]{2}\d{3}$/.test(codigo)) {
+    elMensajeConsulta.innerHTML = '<div class="mensaje error">El código son dos letras y tres números, por ejemplo AE472.</div>';
+    return;
+  }
+
+  elBtnConsultar.disabled = true;
+  elBtnConsultar.textContent = 'Buscando…';
+
+  try {
+    const resp = await fetch('/api/consultar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ codigo }),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      elMensajeConsulta.innerHTML = `<div class="mensaje error">${escapar(data.error || 'No se pudo consultar.')}</div>`;
+    } else {
+      mostrarPagoConsultado(data.pago);
+    }
+  } catch (e) {
+    elMensajeConsulta.innerHTML = '<div class="mensaje error">No hay conexión. Intentá de nuevo.</div>';
+  }
+
+  elBtnConsultar.disabled = false;
+  elBtnConsultar.textContent = 'Consultar';
+});
+
+function mostrarPagoConsultado(p) {
+  elResultadoConsulta.innerHTML = `
+    <div class="ficha-pago">
+      <div class="sello-chico">✓</div>
+      <div class="titulo-ficha">Pago registrado</div>
+      <div class="resumen-lista">
+        <div class="fila"><span class="etiqueta">Código</span><span class="valor">${escapar(p.codigo)}</span></div>
+        <div class="fila"><span class="etiqueta">Nombre</span><span class="valor">${escapar(p.nombre)}</span></div>
+        <div class="fila"><span class="etiqueta">Vestuario</span><span class="valor">${escapar(p.artista)}</span></div>
+        <div class="fila"><span class="etiqueta">Monto</span><span class="valor">${escapar(colones(p.monto, true))}</span></div>
+        <div class="fila"><span class="etiqueta">Fecha</span><span class="valor">${escapar(fechaLarga(p.fecha))}</span></div>
+        <div class="fila"><span class="etiqueta">Referencia</span><span class="valor referencia">${escapar(p.referencia)}</span></div>
+      </div>
+    </div>`;
+  elResultadoConsulta.classList.remove('oculto');
+}
+
 function mostrarResumen(r) {
+  document.getElementById('codigo-generado').textContent = r.codigo || '—';
   elResumen.innerHTML = `
     <div class="fila"><span class="etiqueta">Nombre</span><span class="valor">${escapar(r.nombre)}</span></div>
     <div class="fila"><span class="etiqueta">Vestuario</span><span class="valor">${escapar(r.artista)}</span></div>

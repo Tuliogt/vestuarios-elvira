@@ -217,7 +217,7 @@
         </div>
         <div class="tabla-scroll">
           <table>
-            <thead><tr><th>Fecha</th><th>Registrado por</th><th>Comprobante a nombre de</th><th>Vestuario</th><th class="num">Monto</th><th>Referencia</th><th>Ver</th></tr></thead>
+            <thead><tr><th>Código</th><th>Fecha</th><th>Registrado por</th><th>Comprobante a nombre de</th><th>Vestuario</th><th class="num">Monto</th><th>Referencia</th><th>Ver</th></tr></thead>
             <tbody id="total-pagos"></tbody>
           </table>
         </div>
@@ -638,6 +638,7 @@ function armarTotal() {
   // --- listado de pagos ---
   document.getElementById('total-pagos').innerHTML = PAGOS.length
     ? PAGOS.map((p) => `<tr>
+        <td class="codigo-celda">${escapar(p.codigo || '—')}</td>
         <td class="nowrap">${escapar(fechaCorta(p.fecha_comprobante))}</td>
         <td>${escapar(p.nombre)}</td>
         <td>${escapar(nombreComprobante(p))}</td>
@@ -648,7 +649,7 @@ function armarTotal() {
               ? `<button class="boton-ver" data-imagen="${escapar(p.imagen_path)}">Ver</button>`
               : '—'}</td>
       </tr>`).join('')
-    : '<tr><td colspan="7">Sin pagos registrados.</td></tr>';
+    : '<tr><td colspan="8">Sin pagos registrados.</td></tr>';
 
   const totalPagado = PAGOS.reduce((a, p) => a + Number(p.monto || 0), 0);
   document.getElementById('total-pagos-pie').textContent =
@@ -844,12 +845,12 @@ function datosReporte(cual) {
   if (cual === 'pagos') {
     return {
       titulo: 'Listado de pagos',
-      columnas: ['Fecha', 'Registrado por', 'Comprobante a nombre de', 'Vestuario', 'Monto (CRC)', 'Referencia', 'Banco'],
+      columnas: ['Código', 'Fecha', 'Registrado por', 'Comprobante a nombre de', 'Vestuario', 'Monto (CRC)', 'Referencia', 'Banco'],
       filas: PAGOS.map((p) => [
-        fechaCorta(p.fecha_comprobante), p.nombre, nombreComprobante(p),
+        p.codigo || '', fechaCorta(p.fecha_comprobante), p.nombre, nombreComprobante(p),
         p.artista, Number(p.monto || 0), p.referencia, p.banco || '',
       ]),
-      columnaMonto: 4,
+      columnaMonto: 5,
     };
   }
 

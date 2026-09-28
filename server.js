@@ -52,6 +52,11 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const limiteRegistro = crearLimitador({ maximo: 12, ventanaMs: 10 * 60 * 1000 });
 
+// La consulta se limita más fuerte que el registro: el código
+// tiene 25.000 combinaciones, así que sin este freno alguien
+// podría probarlas todas y ver los pagos de los demás.
+const limiteConsulta = crearLimitador({ maximo: 8, ventanaMs: 10 * 60 * 1000 });
+
 const TIPOS = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -98,6 +103,11 @@ const servidor = http.createServer(async (req, res) => {
     if (ruta === '/api/registrar') {
       if (req.method !== 'POST') return json(res, { error: 'Método no permitido.' }, 405);
       return await manejarRegistro(req, res);
+    }
+
+    if (ruta === '/api/consultar') {
+      if (req.method !== 'POST') return json(res, { error: 'Método no permitido.' }, 405);
+      return await manejarConsulta(req, res);
     }
 
     if (ruta.startsWith('/api/comprobante/')) {
@@ -349,9 +359,12 @@ async function manejarRegistro(req, res) {
     console.error('No se pudo guardar la imagen:', e.message);
   }
 
+  const codigo = await generarCodigoLibre();
+
   const registro = {
     nombre,
     artista,
+    codigo,
     fecha_comprobante: fechaLimpia(campos.fecha),
     remitente: textoLimpio(campos.remitente, 150),
     cuenta_origen: textoLimpio(campos.cuenta_origen, 200),
@@ -392,9 +405,113 @@ async function manejarRegistro(req, res) {
   return json(res, {
     ok: true,
     resumen: {
-      nombre, artista, monto, referencia,
+      nombre, artista, monto, referencia, codigo,
       fecha: registro.fecha_comprobante,
       detalle: registro.detalle,
+    },
+  });
+}
+
+// ------------------------------------------------------------
+// Código de consulta: dos vocales + tres dígitos (ej. AE472)
+//
+// Aleatorio a propósito, no correlativo: si fuera 001, 002, 003
+// cualquiera podría adivinar el de otra persona probando el
+// número de al lado.
+// ------------------------------------------------------------
+const VOCALES = 'AEIOU';
+
+function generarCodigo() {
+  const azar = crypto.randomBytes(5);
+  return VOCALES[azar[0] % 5]
+       + VOCALES[azar[1] % 5]
+       + (azar[2] % 10)
+       + (azar[3] % 10)
+       + (azar[4] % 10);
+}
+
+// Reintenta si el código ya existe. Con 25.000 combinaciones y
+// pocos cientos de pagos, las colisiones son raras.
+async function generarCodigoLibre() {
+  for (let intento = 0; intento < 12; intento++) {
+    const codigo = generarCodigo();
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/pagos?codigo=eq.${codigo}&select=codigo&limit=1`,
+        { headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` } }
+      );
+      if (!r.ok) return codigo;                 // ante la duda, se usa
+      const filas = await r.json();
+      if (!filas.length) return codigo;
+    } catch {
+      return codigo;
+    }
+  }
+  return generarCodigo();
+}
+
+// ------------------------------------------------------------
+// POST /api/consultar — la persona busca SU pago por el código
+//
+// Devuelve solo los datos de ese pago. Nunca la lista completa,
+// ni el comprobante, ni nada de otras personas.
+// ------------------------------------------------------------
+async function manejarConsulta(req, res) {
+  const ip = ipCliente(req, CONFIAR_PROXY);
+
+  const permiso = limiteConsulta(ip);
+  if (!permiso.ok) {
+    return json(res, {
+      error: `Demasiadas consultas. Espera ${Math.ceil(permiso.esperaSegundos / 60)} minutos.`,
+    }, 429);
+  }
+
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return json(res, { error: 'No disponible en este momento.' }, 500);
+  }
+
+  let cuerpo;
+  try {
+    cuerpo = await leerJson(req);
+  } catch (e) {
+    return json(res, { error: String(e.message || e) }, 413);
+  }
+
+  const codigo = String((cuerpo && cuerpo.codigo) || '').trim().toUpperCase();
+
+  if (!/^[AEIOU]{2}\d{3}$/.test(codigo)) {
+    return json(res, { error: 'El código debe tener dos letras y tres números, por ejemplo AE472.' }, 400);
+  }
+
+  let filas;
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/pagos?codigo=eq.${codigo}`
+      + '&select=nombre,artista,monto,fecha_comprobante,referencia,detalle,codigo&limit=1',
+      { headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` } }
+    );
+    if (!r.ok) throw new Error(await r.text());
+    filas = await r.json();
+  } catch (e) {
+    console.error('Consulta:', e.message);
+    return json(res, { error: 'No se pudo consultar en este momento.' }, 502);
+  }
+
+  if (!filas.length) {
+    return json(res, { error: 'No encontramos ningún pago con ese código. Revisa que esté bien escrito.' }, 404);
+  }
+
+  const p = filas[0];
+  return json(res, {
+    ok: true,
+    pago: {
+      codigo: p.codigo,
+      nombre: p.nombre,
+      artista: p.artista,
+      monto: p.monto,
+      fecha: p.fecha_comprobante,
+      referencia: p.referencia,
+      detalle: p.detalle,
     },
   });
 }
