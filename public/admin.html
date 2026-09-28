@@ -95,6 +95,14 @@
         </div>
       </div>
 
+      <div class="tarjeta" id="tarjeta-comprobantes">
+        <h2>Comprobantes guardados</h2>
+        <p id="texto-comprobantes">—</p>
+        <div id="aviso-vencimiento"></div>
+        <button class="boton-secundario" id="btn-borrar-comprobantes">Borrar los comprobantes guardados</button>
+        <div id="mensaje-borrado"></div>
+      </div>
+
       <div class="tarjeta">
         <h2>Quiénes más han pagado</h2>
         <div class="tabla-envoltura">
@@ -132,7 +140,7 @@
           <h2>Pagos recibidos</h2>
           <div class="tabla-envoltura">
             <table>
-              <thead><tr><th>Fecha</th><th>Vestuario</th><th class="num">Monto</th><th>Detalle</th><th>Referencia</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Vestuario</th><th class="num">Monto</th><th>Detalle</th><th>Referencia</th><th>Comprobante</th></tr></thead>
               <tbody id="cuerpo-pagos"></tbody>
             </table>
           </div>
@@ -209,7 +217,7 @@
         </div>
         <div class="tabla-scroll">
           <table>
-            <thead><tr><th>Fecha</th><th>Registrado por</th><th>Comprobante a nombre de</th><th>Vestuario</th><th class="num">Monto</th><th>Referencia</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Registrado por</th><th>Comprobante a nombre de</th><th>Vestuario</th><th class="num">Monto</th><th>Referencia</th><th>Ver</th></tr></thead>
             <tbody id="total-pagos"></tbody>
           </table>
         </div>
@@ -282,6 +290,15 @@
     </div>
 
   </section>
+
+  <!-- Visor del comprobante -->
+  <div id="visor" class="visor oculto">
+    <div class="visor-contenido">
+      <div id="visor-cargando" class="centro-carga">Abriendo el comprobante…</div>
+      <img id="visor-imagen" alt="Comprobante" class="oculto" />
+      <button class="boton-secundario" id="btn-cerrar-visor">Cerrar</button>
+    </div>
+  </div>
 
   <!-- Aviso para instalar la app (solo aparece si Android lo ofrece) -->
   <div id="barra-instalar" class="barra-instalar oculto">
@@ -412,6 +429,7 @@ async function cargarTodo() {
   ITEMS = items || [];
 
   armarInicio();
+  armarComprobantes();
   armarSelectorPersonas();
   armarTotal();
 }
@@ -540,8 +558,11 @@ function armarPersona(persona) {
         <td class="num">${escapar(colones(p.monto))}</td>
         <td>${escapar(p.detalle || '—')}</td>
         <td class="referencia">${escapar(p.referencia)}</td>
+        <td>${p.imagen_path
+              ? `<button class="boton-ver" data-imagen="${escapar(p.imagen_path)}">Ver</button>`
+              : '—'}</td>
       </tr>`).join('')
-    : '<tr><td colspan="5">Sin pagos registrados.</td></tr>';
+    : '<tr><td colspan="6">Sin pagos registrados.</td></tr>';
 
   document.getElementById('cuerpo-items').innerHTML = items.length
     ? items.map((i) => `<tr>
@@ -623,8 +644,11 @@ function armarTotal() {
         <td>${escapar(p.artista)}</td>
         <td class="num">${escapar(colones(p.monto))}</td>
         <td class="referencia">${escapar(p.referencia)}</td>
+        <td>${p.imagen_path
+              ? `<button class="boton-ver" data-imagen="${escapar(p.imagen_path)}">Ver</button>`
+              : '—'}</td>
       </tr>`).join('')
-    : '<tr><td colspan="6">Sin pagos registrados.</td></tr>';
+    : '<tr><td colspan="7">Sin pagos registrados.</td></tr>';
 
   const totalPagado = PAGOS.reduce((a, p) => a + Number(p.monto || 0), 0);
   document.getElementById('total-pagos-pie').textContent =
@@ -711,6 +735,104 @@ function armarTotal() {
       }).join('')
     : '<tr><td colspan="4">Sin datos.</td></tr>';
 }
+
+// ==================== VISOR DE COMPROBANTES ====================
+const visor = document.getElementById('visor');
+const visorImagen = document.getElementById('visor-imagen');
+const visorCargando = document.getElementById('visor-cargando');
+
+function cerrarVisor() {
+  visor.classList.add('oculto');
+  if (visorImagen.src.startsWith('blob:')) URL.revokeObjectURL(visorImagen.src);
+  visorImagen.src = '';
+  visorImagen.classList.add('oculto');
+  visorCargando.classList.remove('oculto');
+}
+
+document.getElementById('btn-cerrar-visor').addEventListener('click', cerrarVisor);
+visor.addEventListener('click', (e) => { if (e.target === visor) cerrarVisor(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarVisor(); });
+
+// La imagen se pide al servidor con el token de la sesión; nunca
+// se expone una URL pública del comprobante.
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('.boton-ver');
+  if (!b) return;
+
+  visor.classList.remove('oculto');
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { cerrarVisor(); return; }
+
+  try {
+    const r = await fetch('/api/comprobante/' + encodeURIComponent(b.dataset.imagen), {
+      headers: { authorization: 'Bearer ' + session.access_token },
+    });
+    if (!r.ok) throw new Error('no disponible');
+    const blob = await r.blob();
+    visorImagen.src = URL.createObjectURL(blob);
+    visorImagen.classList.remove('oculto');
+    visorCargando.classList.add('oculto');
+  } catch (err) {
+    visorCargando.textContent = 'No se pudo abrir el comprobante.';
+  }
+});
+
+// ==================== BORRAR COMPROBANTES ====================
+function armarComprobantes() {
+  const conImagen = PAGOS.filter((p) => p.imagen_path).length;
+  const texto = document.getElementById('texto-comprobantes');
+  const btn = document.getElementById('btn-borrar-comprobantes');
+  const aviso = document.getElementById('aviso-vencimiento');
+
+  texto.textContent = conImagen
+    ? `${conImagen} comprobante(s) guardados. Doña Elvia los puede ver desde el botón "Ver" en cada pago.`
+    : 'No hay comprobantes guardados.';
+
+  btn.disabled = conImagen === 0;
+
+  // Avisar cuando la fecha de borrado se acerca
+  aviso.innerHTML = '';
+  const fecha = window.FECHA_BORRADO;
+  if (fecha && conImagen) {
+    const dias = Math.ceil((new Date(fecha + 'T23:59:59') - new Date()) / 86400000);
+    if (dias < 0) {
+      aviso.innerHTML = '<div class="mensaje aviso">Los comprobantes debían borrarse el ' +
+        escapar(fechaCorta(fecha)) + '. Se borran solos en el próximo reinicio, o con el botón de abajo.</div>';
+    } else if (dias <= 15) {
+      aviso.innerHTML = `<div class="mensaje aviso">Los comprobantes se borran automáticamente el ${escapar(fechaCorta(fecha))} (faltan ${dias} día(s)).</div>`;
+    } else {
+      aviso.innerHTML = `<div class="ayuda">Se borran automáticamente el ${escapar(fechaCorta(fecha))}.</div>`;
+    }
+  }
+}
+
+document.getElementById('btn-borrar-comprobantes').addEventListener('click', async () => {
+  const cuantos = PAGOS.filter((p) => p.imagen_path).length;
+  if (!confirm(`¿Borrar los ${cuantos} comprobantes guardados?\n\nLos pagos y los montos NO se borran, solo las imágenes. Esto no se puede deshacer.`)) return;
+
+  const btn = document.getElementById('btn-borrar-comprobantes');
+  const msj = document.getElementById('mensaje-borrado');
+  btn.disabled = true;
+  btn.textContent = 'Borrando…';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch('/api/borrar-comprobantes', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + session.access_token },
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || 'falló');
+    mensaje(msj, `Se borraron ${d.borrados} comprobante(s).`, 'exito');
+    await cargarTodo();
+  } catch (err) {
+    mensaje(msj, 'No se pudieron borrar los comprobantes.', 'error');
+  }
+
+  btn.textContent = 'Borrar los comprobantes guardados';
+  btn.disabled = false;
+});
 
 // ==================== EXPORTACIONES ====================
 function hoyTexto() {

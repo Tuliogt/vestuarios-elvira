@@ -39,6 +39,11 @@ const CONFIAR_PROXY = process.env.CONFIAR_EN_PROXY !== 'false';
 
 // Solo se aceptan comprobantes dirigidos a esta línea SINPE.
 // Es lo que evita que alguien suba el pago de otra cosa.
+// Los comprobantes se guardan solo hasta esta fecha; después el
+// servidor los borra solo. Vacío = no se borran nunca.
+const FECHA_BORRADO = (process.env.FECHA_BORRADO || '').trim();
+const BUCKET = process.env.SUPABASE_BUCKET || 'comprobantes';
+
 const SINPE_TELEFONO = (process.env.SINPE_TELEFONO || '').replace(/\D/g, '');
 const SINPE_TITULAR = (process.env.SINPE_TITULAR || '').trim();
 
@@ -95,6 +100,16 @@ const servidor = http.createServer(async (req, res) => {
       return await manejarRegistro(req, res);
     }
 
+    if (ruta.startsWith('/api/comprobante/')) {
+      if (req.method !== 'GET') return json(res, { error: 'Método no permitido.' }, 405);
+      return await servirComprobante(req, res, decodeURIComponent(ruta.slice('/api/comprobante/'.length)));
+    }
+
+    if (ruta === '/api/borrar-comprobantes') {
+      if (req.method !== 'POST') return json(res, { error: 'Método no permitido.' }, 405);
+      return await manejarBorrado(req, res);
+    }
+
     if (ruta === '/config.js') return servirConfig(res);
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -125,6 +140,15 @@ servidor.listen(PUERTO, '0.0.0.0', () => {
   if (!SUPABASE_URL) faltan.push('SUPABASE_URL');
   if (!SERVICE_KEY) faltan.push('SUPABASE_SERVICE_ROLE_KEY');
   if (faltan.length) console.warn('AVISO: faltan variables:', faltan.join(', '));
+
+  if (FECHA_BORRADO) {
+    console.log(`Los comprobantes se borran automáticamente después del ${FECHA_BORRADO}.`);
+    revisarVencimiento();
+    const diario = setInterval(revisarVencimiento, 24 * 60 * 60 * 1000);
+    diario.unref();
+  } else {
+    console.warn('AVISO: FECHA_BORRADO vacía — los comprobantes se guardan indefinidamente.');
+  }
 });
 
 // ------------------------------------------------------------
@@ -165,6 +189,7 @@ function servirConfig(res) {
   const cuerpo = `window.SUPABASE_URL = ${JSON.stringify(SUPABASE_URL)};
 window.SUPABASE_ANON_KEY = ${JSON.stringify(process.env.SUPABASE_ANON_KEY || '')};
 window.ARTISTAS = ${JSON.stringify(listaArtistas())};
+window.FECHA_BORRADO = ${JSON.stringify(FECHA_BORRADO)};
 `;
   res.writeHead(200, cabeceras({
     'content-type': 'application/javascript; charset=utf-8',
@@ -236,7 +261,13 @@ async function manejarRegistro(req, res) {
     return json(res, { error: 'No se pudo leer la imagen. Intenta de nuevo en un momento.' }, 502);
   }
 
-  imagen = null; // la imagen se descarta aquí; nunca se guarda
+  // La imagen se conserva para que doña Elvia pueda verificarla.
+  // Se guarda recién acá, después de que el comprobante pasó
+  // todas las validaciones: así no se acumulan archivos de
+  // intentos rechazados.
+  const bytesImagen = imagen;
+  const tipoImagen = detectarTipoImagen(imagen);
+  imagen = null;
 
   // Diagnóstico: con DEBUG_OCR=true se imprime el texto que leyó
   // Vision, para poder ajustar el parser ante un banco nuevo.
@@ -309,6 +340,15 @@ async function manejarRegistro(req, res) {
     return json(res, { error: 'No pudimos leer el monto del comprobante. Sube una captura más clara.' }, 422);
   }
 
+  let imagenPath = null;
+  try {
+    imagenPath = await subirImagen(bytesImagen, tipoImagen);
+  } catch (e) {
+    // Si falla la subida el pago se registra igual: perder el
+    // registro del pago sería peor que perder la imagen.
+    console.error('No se pudo guardar la imagen:', e.message);
+  }
+
   const registro = {
     nombre,
     artista,
@@ -319,6 +359,7 @@ async function manejarRegistro(req, res) {
     detalle: textoLimpio(campos.detalle, 300),
     referencia,
     banco: textoLimpio(banco, 40),
+    imagen_path: imagenPath,
     ip_origen: ip,
   };
 
@@ -356,6 +397,169 @@ async function manejarRegistro(req, res) {
       detalle: registro.detalle,
     },
   });
+}
+
+
+// ------------------------------------------------------------
+// Almacenamiento de comprobantes
+//
+// Las imágenes viven en un bucket privado. El navegador nunca
+// las pide directo a Supabase: pasan por este servidor, que
+// primero valida la sesión de doña Elvia.
+// ------------------------------------------------------------
+async function subirImagen(buffer, tipo) {
+  const ext = tipo === 'image/png' ? 'png' : tipo === 'image/webp' ? 'webp' : 'jpg';
+  const nombre = `${Date.now()}_${crypto.randomBytes(8).toString('hex')}.${ext}`;
+
+  const respuesta = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${nombre}`, {
+    method: 'POST',
+    headers: {
+      'content-type': tipo,
+      apikey: SERVICE_KEY,
+      authorization: `Bearer ${SERVICE_KEY}`,
+    },
+    body: buffer,
+  });
+
+  if (!respuesta.ok) throw new Error((await respuesta.text()).slice(0, 200));
+  return nombre;
+}
+
+// Comprueba contra Supabase que quien pide sea doña Elvia
+async function sesionValida(req) {
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) return false;
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: process.env.SUPABASE_ANON_KEY || '', authorization: auth },
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ------------------------------------------------------------
+// GET /api/comprobante/:archivo — solo para el panel
+// ------------------------------------------------------------
+async function servirComprobante(req, res, archivo) {
+  if (!SUPABASE_URL || !SERVICE_KEY) return json(res, { error: 'No disponible.' }, 500);
+  if (!(await sesionValida(req))) return json(res, { error: 'No autorizado.' }, 401);
+
+  // Solo nombres generados por subirImagen; nada de rutas raras
+  if (!/^\d+_[0-9a-f]{16}\.(jpg|png|webp)$/.test(archivo)) {
+    return json(res, { error: 'Ruta inválida.' }, 400);
+  }
+
+  let objeto;
+  try {
+    objeto = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${archivo}`, {
+      headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` },
+    });
+  } catch (e) {
+    return json(res, { error: 'No disponible.' }, 502);
+  }
+
+  if (!objeto.ok) return json(res, { error: 'El comprobante ya no está disponible.' }, 404);
+
+  const datos = Buffer.from(await objeto.arrayBuffer());
+  res.writeHead(200, cabeceras({
+    'content-type': objeto.headers.get('content-type') || 'image/jpeg',
+    'cache-control': 'private, max-age=300',
+  }));
+  res.end(datos);
+}
+
+// ------------------------------------------------------------
+// POST /api/borrar-comprobantes — vacía el bucket
+//
+// Los pagos NO se tocan: solo desaparecen las imágenes.
+// ------------------------------------------------------------
+async function manejarBorrado(req, res) {
+  if (!SUPABASE_URL || !SERVICE_KEY) return json(res, { error: 'No disponible.' }, 500);
+  if (!(await sesionValida(req))) return json(res, { error: 'No autorizado.' }, 401);
+
+  try {
+    const cuantos = await borrarTodosLosComprobantes();
+    return json(res, { ok: true, borrados: cuantos });
+  } catch (e) {
+    console.error('Borrado de comprobantes:', e.message);
+    return json(res, { error: 'No se pudieron borrar los comprobantes.' }, 502);
+  }
+}
+
+async function borrarTodosLosComprobantes() {
+  let total = 0;
+
+  // El listado viene paginado; se repite hasta vaciarlo
+  for (let vuelta = 0; vuelta < 50; vuelta++) {
+    const lista = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        apikey: SERVICE_KEY,
+        authorization: `Bearer ${SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ prefix: '', limit: 100, offset: 0 }),
+    });
+
+    if (!lista.ok) throw new Error(await lista.text());
+
+    const archivos = (await lista.json()) || [];
+    const nombres = archivos.map((a) => a.name).filter(Boolean);
+    if (!nombres.length) break;
+
+    const borrado = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
+      method: 'DELETE',
+      headers: {
+        'content-type': 'application/json',
+        apikey: SERVICE_KEY,
+        authorization: `Bearer ${SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ prefixes: nombres }),
+    });
+
+    if (!borrado.ok) throw new Error(await borrado.text());
+    total += nombres.length;
+  }
+
+  // Limpiar las referencias en la tabla
+  await fetch(`${SUPABASE_URL}/rest/v1/pagos?imagen_path=not.is.null`, {
+    method: 'PATCH',
+    headers: {
+      'content-type': 'application/json',
+      apikey: SERVICE_KEY,
+      authorization: `Bearer ${SERVICE_KEY}`,
+      prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ imagen_path: null }),
+  }).catch(() => {});
+
+  return total;
+}
+
+// ------------------------------------------------------------
+// Borrado automático al pasar la fecha
+//
+// Se revisa al arrancar y una vez al día. Si el contenedor
+// estuviera apagado ese día, el borrado ocurre al siguiente
+// arranque — nunca se saltea.
+// ------------------------------------------------------------
+function venceHoy() {
+  if (!FECHA_BORRADO) return false;
+  const hoy = new Date().toISOString().slice(0, 10);
+  return hoy > FECHA_BORRADO;
+}
+
+async function revisarVencimiento() {
+  if (!venceHoy() || !SUPABASE_URL || !SERVICE_KEY) return;
+  try {
+    const n = await borrarTodosLosComprobantes();
+    if (n) console.log(`Comprobantes borrados por vencimiento (${FECHA_BORRADO}): ${n}`);
+  } catch (e) {
+    console.error('Borrado automático falló:', e.message);
+  }
 }
 
 // ------------------------------------------------------------
